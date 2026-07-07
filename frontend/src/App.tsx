@@ -1,0 +1,45 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { CommonLayout } from './components/CommonLayout';
+
+// Route wrapper to guard pages requiring authentication
+const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const user = localStorage.getItem('user');
+  if (!user) {
+    // Redirect to login if user isn't authenticated
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public Authentication Route */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected Dashboard Routes nested under CommonLayout */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <CommonLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Redirect root URL to /dashboard */}
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+        </Route>
+
+        {/* Fallback route - Redirect any unrecognized paths */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default App;
