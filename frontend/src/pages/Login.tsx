@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Radio, Tabs, message } from 'antd';
+import { Card, Form, Input, Button, Radio, Tabs, message, Divider } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -18,6 +18,41 @@ export const Login: React.FC = () => {
       navigate('/dashboard');
     }
   }, [navigate]);
+
+  const handleQuickLogin = async (role: 'admin' | 'user') => {
+    setLoading(true);
+    const email = role === 'admin' ? 'admin@example.com' : 'user@example.com';
+    const password = role === 'admin' ? 'admin123' : 'user123';
+    const username = role === 'admin' ? 'Demo Admin' : 'Demo User';
+
+    try {
+      // 1. Try to login via Backend API
+      const response = await axios.post('/api/auth/login', { email, password });
+      localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem('offlineMode', 'false');
+      message.success(`Đăng nhập thành công với tài khoản ảo ${response.data.username}!`);
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.warn('Backend login failed, switching to Offline Demo Mode:', error);
+      
+      // 2. Offline Fallback: If backend is offline or db connection failed, bypass
+      const mockUserData = {
+        _id: role === 'admin' ? 'mock-admin-id-123' : 'mock-user-id-456',
+        username,
+        email,
+        role,
+        token: `mock-jwt-token-for-${role}`,
+      };
+      
+      localStorage.setItem('user', JSON.stringify(mockUserData));
+      localStorage.setItem('offlineMode', 'true');
+      
+      message.info(`Đã chuyển sang Chế độ Demo Ngoại tuyến (${role === 'admin' ? 'Quản trị' : 'Người xem'})!`);
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onFinishLogin = async (values: any) => {
     setLoading(true);
@@ -203,6 +238,43 @@ export const Login: React.FC = () => {
             </Form>
           </TabPane>
         </Tabs>
+
+        <Divider style={{ margin: '16px 0', borderColor: '#f0f0f0' }}>
+          <span style={{ color: '#8c8c8c', fontSize: '13px', fontWeight: 'normal' }}>
+            Hoặc Trải nghiệm nhanh (Demo)
+          </span>
+        </Divider>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          <Button
+            onClick={() => handleQuickLogin('admin')}
+            style={{
+              flex: 1,
+              borderRadius: '6px',
+              borderColor: '#ffccc7',
+              color: '#ff4d4f',
+              backgroundColor: '#fff1f0',
+              fontWeight: 500,
+              height: '40px'
+            }}
+          >
+            Quyền Admin (Tạo/Sửa)
+          </Button>
+          <Button
+            onClick={() => handleQuickLogin('user')}
+            style={{
+              flex: 1,
+              borderRadius: '6px',
+              borderColor: '#adc6ff',
+              color: '#2f54eb',
+              backgroundColor: '#f0f5ff',
+              fontWeight: 500,
+              height: '40px'
+            }}
+          >
+            Quyền User (Xem)
+          </Button>
+        </div>
       </Card>
     </div>
   );

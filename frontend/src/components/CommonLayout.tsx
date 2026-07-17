@@ -6,7 +6,8 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
-  ScheduleOutlined
+  ScheduleOutlined,
+  PlusCircleOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -31,11 +32,13 @@ export const CommonLayout: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('offlineMode');
     navigate('/login');
   };
 
   const getActiveKey = () => {
     if (location.pathname === '/dashboard') return ['dashboard'];
+    if (location.pathname === '/create-schedule') return ['create-schedule'];
     return [];
   };
 
@@ -80,6 +83,15 @@ export const CommonLayout: React.FC = () => {
           >
             Thời gian biểu
           </Menu.Item>
+          {user && user.role === 'admin' && (
+            <Menu.Item
+              key="create-schedule"
+              icon={<PlusCircleOutlined />}
+              onClick={() => navigate('/create-schedule')}
+            >
+              Tạo lịch trình
+            </Menu.Item>
+          )}
         </Menu>
       </Sider>
       <Layout>
