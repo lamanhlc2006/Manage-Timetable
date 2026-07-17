@@ -35,12 +35,18 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     });
 
     if (user) {
+      const token = generateToken(user._id.toString());
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
       res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
-        token: generateToken(user._id.toString()),
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -65,12 +71,18 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     // Validate password and generate token
     if (user && (await user.matchPassword(password))) {
+      const token = generateToken(user._id.toString());
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
       res.json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
-        token: generateToken(user._id.toString()),
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
@@ -103,4 +115,19 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     console.error('Profile error:', error);
     res.status(500).json({ message: error.message || 'Server error' });
   }
+};
+
+/**
+ * @desc    Logout user and clear token cookie
+ * @route   POST /api/auth/logout
+ * @access  Public
+ */
+export const logoutUser = async (req: Request, res: Response): Promise<void> => {
+  res.cookie('token', '', {
+    httpOnly: true,
+    expires: new Date(0),
+    secure: true,
+    sameSite: 'strict',
+  });
+  res.json({ message: 'Logged out successfully' });
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Radio, Tabs, message, Divider } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
 const { TabPane } = Tabs;
 
@@ -27,7 +27,7 @@ export const Login: React.FC = () => {
 
     try {
       // 1. Try to login via Backend API
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await api.post('/auth/login', { email, password });
       localStorage.setItem('user', JSON.stringify(response.data));
       localStorage.setItem('offlineMode', 'false');
       message.success(`Đăng nhập thành công với tài khoản ảo ${response.data.username}!`);
@@ -58,7 +58,7 @@ export const Login: React.FC = () => {
     setLoading(true);
     try {
       // POST to backend login route via relative path (proxied)
-      const response = await axios.post('/api/auth/login', {
+      const response = await api.post('/auth/login', {
         email: values.email,
         password: values.password,
       });
@@ -78,7 +78,7 @@ export const Login: React.FC = () => {
   const onFinishRegister = async (values: any) => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/auth/register', {
+      const response = await api.post('/auth/register', {
         username: values.username,
         email: values.email,
         password: values.password,

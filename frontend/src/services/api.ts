@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+axios.defaults.withCredentials = true;
+
 // Create axios instance pointing to proxy path /api
 const api = axios.create({
   baseURL: '/api',
+  withCredentials: true,
 });
 
 // Add interceptor to automatically insert JWT token into headers if logged in

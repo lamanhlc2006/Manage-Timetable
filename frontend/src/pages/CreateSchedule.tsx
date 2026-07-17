@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, DatePicker, Select, Button, Space, message } from 'antd';
 import { PlusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { createSchedule, CreateScheduleInput } from '../services/scheduleService';
 
 const { Option } = Select;
@@ -44,9 +44,9 @@ export const CreateSchedule: React.FC = () => {
 
   const onFinish = async (values: any) => {
     setLoading(true);
-    const [startMom, endMom] = values.range;
+    const [startDayjs, endDayjs] = values.range;
 
-    if (startMom.isSameOrAfter(endMom)) {
+    if (startDayjs.isAfter(endDayjs) || startDayjs.isSame(endDayjs)) {
       message.error('Thời gian bắt đầu phải trước thời gian kết thúc!');
       setLoading(false);
       return;
@@ -55,8 +55,8 @@ export const CreateSchedule: React.FC = () => {
     const inputData: CreateScheduleInput = {
       title: values.title,
       description: values.description,
-      startTime: startMom.toISOString(),
-      endTime: endMom.toISOString(),
+      startTime: startDayjs.toISOString(),
+      endTime: endDayjs.toISOString(),
       color: values.color,
     };
 
@@ -97,7 +97,7 @@ export const CreateSchedule: React.FC = () => {
           onFinish={onFinish}
           initialValues={{
             color: '#1890ff',
-            range: [moment().hour(9).minute(0), moment().hour(10).minute(0)],
+            range: [dayjs().hour(9).minute(0).second(0), dayjs().hour(10).minute(0).second(0)],
           }}
           size="large"
         >

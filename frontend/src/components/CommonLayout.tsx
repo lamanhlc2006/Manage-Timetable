@@ -10,6 +10,7 @@ import {
   PlusCircleOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import api from '../services/api';
 
 const { Header, Sider, Content } = Layout;
 
@@ -30,7 +31,14 @@ export const CommonLayout: React.FC = () => {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      if (localStorage.getItem('offlineMode') !== 'true') {
+        await api.post('/auth/logout');
+      }
+    } catch (err) {
+      console.error('Logout error', err);
+    }
     localStorage.removeItem('user');
     localStorage.removeItem('offlineMode');
     navigate('/login');

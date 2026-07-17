@@ -10,33 +10,36 @@ export interface AuthRequest extends Request {
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   let token;
 
-  // Check if token exists in Authorization header
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
-
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as { id: string };
-
-      // Get user from token and attach to request object
-      const user = await User.findById(decoded.id).select('-password');
-      if (!user) {
-        res.status(401).json({ message: 'User not found, unauthorized' });
-        return;
-      }
-
-      req.user = user;
-      next();
-    } catch (error) {
-      console.error('Token verification error:', error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
-      return;
-    }
+  // Check if token exists in cookies
+  if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+  // Fallback to Authorization header
+  else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
   }
 
   if (!token) {
     res.status(401).json({ message: 'Not authorized, no token provided' });
+    return;
+  }
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as { id: string };
+
+    // Get user from token and attach to request object
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      res.status(401).json({ message: 'User not found, unauthorized' });
+      return;
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(401).json({ message: 'Not authorized, token failed' });
     return;
   }
 };

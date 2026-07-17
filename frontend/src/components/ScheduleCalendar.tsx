@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Calendar, Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { ScheduleEvent, CreateScheduleInput } from '../services/scheduleService';
 import { PlusOutlined, EditOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
@@ -39,14 +39,14 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   ];
 
   // Helper to render events on each cell of the Calendar
-  const getListData = (value: moment.Moment) => {
+  const getListData = (value: dayjs.Dayjs) => {
     return schedules.filter((schedule) => {
-      const scheduleDay = moment(schedule.startTime);
+      const scheduleDay = dayjs(schedule.startTime);
       return value.isSame(scheduleDay, 'day');
     });
   };
 
-  const dateCellRender = (value: moment.Moment) => {
+  const dateCellRender = (value: dayjs.Dayjs) => {
     const listData = getListData(value);
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -93,14 +93,14 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   };
 
   // Open modal in Create mode
-  const handleOpenCreateModal = (date?: moment.Moment) => {
+  const handleOpenCreateModal = (date?: dayjs.Dayjs) => {
     if (!isAdmin) return;
     setModalMode('create');
     setSelectedEvent(null);
     setIsModalVisible(true);
 
-    const initialStart = date ? date.clone().hour(9).minute(0) : moment().hour(9).minute(0);
-    const initialEnd = date ? date.clone().hour(10).minute(0) : moment().hour(10).minute(0);
+    const initialStart = date ? date.clone().hour(9).minute(0).second(0) : dayjs().hour(9).minute(0).second(0);
+    const initialEnd = date ? date.clone().hour(10).minute(0).second(0) : dayjs().hour(10).minute(0).second(0);
 
     form.setFieldsValue({
       title: '',
@@ -111,7 +111,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   };
 
   // Triggered when clicking a calendar date cell
-  const handleSelectDate = (value: moment.Moment) => {
+  const handleSelectDate = (value: dayjs.Dayjs) => {
     // If the click originated from an event item, ignore it
     if (isEventClickRef.current) {
       return;
@@ -130,7 +130,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       title: selectedEvent.title,
       description: selectedEvent.description || '',
       color: selectedEvent.color,
-      range: [moment(selectedEvent.startTime), moment(selectedEvent.endTime)],
+      range: [dayjs(selectedEvent.startTime), dayjs(selectedEvent.endTime)],
     });
   };
 
@@ -138,9 +138,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const handleFormSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const [startMom, endMom] = values.range;
+      const [startDayjs, endDayjs] = values.range;
 
-      if (startMom.isSameOrAfter(endMom)) {
+      if (startDayjs.isAfter(endDayjs) || startDayjs.isSame(endDayjs)) {
         message.error('Thời gian bắt đầu phải trước thời gian kết thúc!');
         return;
       }
@@ -148,8 +148,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       const inputData: CreateScheduleInput = {
         title: values.title,
         description: values.description,
-        startTime: startMom.toISOString(),
-        endTime: endMom.toISOString(),
+        startTime: startDayjs.toISOString(),
+        endTime: endDayjs.toISOString(),
         color: values.color,
       };
 
@@ -248,8 +248,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 <tr>
                   <td style={{ padding: '8px 0', color: '#8c8c8c', width: '120px' }}>Thời gian:</td>
                   <td style={{ padding: '8px 0', fontWeight: 500 }}>
-                    {moment(selectedEvent.startTime).format('HH:mm DD/MM/YYYY')} -{' '}
-                    {moment(selectedEvent.endTime).format('HH:mm DD/MM/YYYY')}
+                    {dayjs(selectedEvent.startTime).format('HH:mm DD/MM/YYYY')} -{' '}
+                    {dayjs(selectedEvent.endTime).format('HH:mm DD/MM/YYYY')}
                   </td>
                 </tr>
                 <tr>
