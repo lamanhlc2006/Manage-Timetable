@@ -31,15 +31,53 @@ const ScheduleSchema = new Schema<ISchedule>(
       type: String,
       default: '#1890ff', // Antd default blue color hex
     },
+    category: {
+      type: String,
+      trim: true,
+      default: 'Học tập',
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium',
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Schedule must belong to a user'],
+    },
+    recurrence: {
+      type: {
+        type: String,
+        enum: ['none', 'daily', 'weekly', 'monthly', 'custom'],
+        default: 'none',
+      },
+      interval: {
+        type: Number,
+        default: 1,
+      },
+      daysOfWeek: [Number],
+      endDate: Date,
+      exceptions: [Date],
+    },
+    isException: {
+      type: Boolean,
+      default: false,
+    },
+    parentEvent: {
+      type: Schema.Types.ObjectId,
+      ref: 'Schedule',
     },
   },
   {
     timestamps: true,
   }
 );
+
+// Indexes for performance optimization
+ScheduleSchema.index({ category: 1 });
+ScheduleSchema.index({ priority: 1 });
+ScheduleSchema.index({ startTime: 1, endTime: 1 });
+ScheduleSchema.index({ title: 'text', description: 'text' });
 
 export const Schedule = model<ISchedule>('Schedule', ScheduleSchema);

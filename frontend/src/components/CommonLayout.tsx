@@ -47,6 +47,7 @@ export const CommonLayout: React.FC = () => {
   const getActiveKey = () => {
     if (location.pathname === '/dashboard') return ['dashboard'];
     if (location.pathname === '/create-schedule') return ['create-schedule'];
+    if (location.pathname === '/users') return ['users'];
     return [];
   };
 
@@ -92,13 +93,22 @@ export const CommonLayout: React.FC = () => {
             Thời gian biểu
           </Menu.Item>
           {user && user.role === 'admin' && (
-            <Menu.Item
-              key="create-schedule"
-              icon={<PlusCircleOutlined />}
-              onClick={() => navigate('/create-schedule')}
-            >
-              Tạo lịch trình
-            </Menu.Item>
+            <>
+              <Menu.Item
+                key="create-schedule"
+                icon={<PlusCircleOutlined />}
+                onClick={() => navigate('/create-schedule')}
+              >
+                Tạo lịch trình
+              </Menu.Item>
+              <Menu.Item
+                key="users"
+                icon={<UserOutlined />}
+                onClick={() => navigate('/users')}
+              >
+                Quản lý người dùng
+              </Menu.Item>
+            </>
           )}
         </Menu>
       </Sider>

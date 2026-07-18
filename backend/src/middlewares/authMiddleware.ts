@@ -34,6 +34,10 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       res.status(401).json({ message: 'User not found, unauthorized' });
       return;
     }
+    if (user.isActive === false) {
+      res.status(403).json({ message: 'Tài khoản của bạn đã bị khóa.' });
+      return;
+    }
 
     req.user = user;
     next();

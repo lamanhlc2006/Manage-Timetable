@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db';
 import authRoutes from './routes/authRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
+import userRoutes from './routes/userRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +39,7 @@ app.use(cookieParser());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/api/users', userRoutes);
 
 // Root route for simple API check
 app.get('/', (req, res) => {

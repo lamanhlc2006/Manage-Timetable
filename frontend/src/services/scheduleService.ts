@@ -7,6 +7,14 @@ export interface UserRef {
   role: 'admin' | 'user';
 }
 
+export interface RecurrenceSettings {
+  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  interval: number;
+  daysOfWeek?: number[];
+  endDate?: string;
+  exceptions?: string[];
+}
+
 export interface ScheduleEvent {
   _id: string;
   title: string;
@@ -14,7 +22,12 @@ export interface ScheduleEvent {
   startTime: string; // ISO Date String
   endTime: string; // ISO Date String
   color: string;
+  category?: string;
+  priority?: 'low' | 'medium' | 'high';
   createdBy: UserRef;
+  recurrence?: RecurrenceSettings;
+  isException?: boolean;
+  parentEvent?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +38,9 @@ export interface CreateScheduleInput {
   startTime: string; // ISO Date String
   endTime: string; // ISO Date String
   color?: string;
+  category?: string;
+  priority?: 'low' | 'medium' | 'high';
+  recurrence?: RecurrenceSettings;
 }
 
 const isOffline = (): boolean => {
@@ -42,6 +58,8 @@ const getOfflineSchedules = (): ScheduleEvent[] => {
         startTime: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(),
         endTime: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
         color: '#1890ff',
+        category: 'Công việc',
+        priority: 'high',
         createdBy: {
           _id: 'mock-admin-id-123',
           username: 'Demo Admin',
@@ -58,6 +76,8 @@ const getOfflineSchedules = (): ScheduleEvent[] => {
         startTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
         endTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
         color: '#52c41a',
+        category: 'Học tập',
+        priority: 'medium',
         createdBy: {
           _id: 'mock-admin-id-123',
           username: 'Demo Admin',
@@ -89,7 +109,7 @@ export const fetchSchedules = async (): Promise<ScheduleEvent[]> => {
   return response.data;
 };
 
-export const createSchedule = async (data: CreateScheduleInput): Promise<ScheduleEvent> => {
+export const createSchedule = async (data: CreateScheduleInput & { force?: boolean }): Promise<ScheduleEvent> => {
   if (isOffline()) {
     const userString = localStorage.getItem('user');
     const user = userString ? JSON.parse(userString) : { _id: 'mock-user', username: 'Guest', email: 'guest@example.com', role: 'user' };
@@ -120,7 +140,7 @@ export const createSchedule = async (data: CreateScheduleInput): Promise<Schedul
   return response.data;
 };
 
-export const updateSchedule = async (id: string, data: Partial<CreateScheduleInput>): Promise<ScheduleEvent> => {
+export const updateSchedule = async (id: string, data: Partial<CreateScheduleInput> & { force?: boolean }): Promise<ScheduleEvent> => {
   if (isOffline()) {
     const schedules = getOfflineSchedules();
     const index = schedules.findIndex(item => item._id === id);
@@ -142,13 +162,63 @@ export const updateSchedule = async (id: string, data: Partial<CreateScheduleInp
   return response.data;
 };
 
-export const deleteSchedule = async (id: string): Promise<{ message: string; id: string }> => {
+export const deleteSchedule = async (id: string, deleteMode?: 'all' | 'current'): Promise<{ message: string; id: string }> => {
   if (isOffline()) {
     const schedules = getOfflineSchedules();
     const filtered = schedules.filter(item => item._id !== id);
     saveOfflineSchedules(filtered);
     return { message: 'Xóa thành công', id };
   }
-  const response = await api.delete<{ message: string; id: string }>(`/schedules/${id}`);
+  const query = deleteMode ? `?deleteMode=${deleteMode}` : '';
+  const response = await api.delete<{ message: string; id: string }>(`/schedules/${id}${query}`);
+  return response.data;
+};
+
+export const searchSchedules = async (params: {
+  keyword?: string;
+  categories?: string[];
+  priority?: string[];
+  startTime?: string;
+  endTime?: string;
+}): Promise<ScheduleEvent[]> => {
+  if (isOffline()) {
+    let data = getOfflineSchedules();
+    if (params.keyword) {
+      const kw = params.keyword.toLowerCase();
+      data = data.filter(
+        (item) =>
+          item.title.toLowerCase().includes(kw) ||
+          (item.description && item.description.toLowerCase().includes(kw))
+      );
+    }
+    if (params.categories && params.categories.length > 0) {
+      data = data.filter((item) => item.category && params.categories!.includes(item.category));
+    }
+    if (params.priority && params.priority.length > 0) {
+      data = data.filter((item) => item.priority && params.priority!.includes(item.priority));
+    }
+    if (params.startTime) {
+      const start = new Date(params.startTime).getTime();
+      data = data.filter((item) => new Date(item.startTime).getTime() >= start);
+    }
+    if (params.endTime) {
+      const end = new Date(params.endTime).getTime();
+      data = data.filter((item) => new Date(item.startTime).getTime() <= end);
+    }
+    return data;
+  }
+
+  const queryParams = new URLSearchParams();
+  if (params.keyword) queryParams.append('keyword', params.keyword);
+  if (params.categories && params.categories.length > 0) {
+    queryParams.append('categories', params.categories.join(','));
+  }
+  if (params.priority && params.priority.length > 0) {
+    queryParams.append('priority', params.priority.join(','));
+  }
+  if (params.startTime) queryParams.append('startTime', params.startTime);
+  if (params.endTime) queryParams.append('endTime', params.endTime);
+
+  const response = await api.get<ScheduleEvent[]>(`/schedules/search?${queryParams.toString()}`);
   return response.data;
 };

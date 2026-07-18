@@ -71,6 +71,10 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     // Validate password and generate token
     if (user && (await user.matchPassword(password))) {
+      if (user.isActive === false) {
+        res.status(403).json({ message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.' });
+        return;
+      }
       const token = generateToken(user._id.toString());
       res.cookie('token', token, {
         httpOnly: true,

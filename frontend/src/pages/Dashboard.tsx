@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Card, message } from 'antd';
 import {
-  fetchSchedules,
   createSchedule,
   updateSchedule,
   deleteSchedule,
+  searchSchedules,
   ScheduleEvent,
   CreateScheduleInput,
 } from '../services/scheduleService';
@@ -14,6 +14,13 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<ScheduleEvent[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [filters, setFilters] = useState<{
+    keyword?: string;
+    categories?: string[];
+    priority?: string[];
+    startTime?: string;
+    endTime?: string;
+  }>({});
 
   // Retrieve user and check role on mount
   useEffect(() => {
@@ -26,10 +33,14 @@ export const Dashboard: React.FC = () => {
         console.error('Error parsing user role', err);
       }
     }
+  }, []);
 
+  // Fetch schedules whenever filters change
+  useEffect(() => {
     const getSchedulesList = async () => {
       try {
-        const data = await fetchSchedules();
+        setLoading(true);
+        const data = await searchSchedules(filters);
         setSchedules(data);
       } catch (err: any) {
         console.error(err);
@@ -40,9 +51,9 @@ export const Dashboard: React.FC = () => {
     };
 
     getSchedulesList();
-  }, []);
+  }, [filters]);
 
-  const handleCreate = async (inputData: CreateScheduleInput) => {
+  const handleCreate = async (inputData: CreateScheduleInput & { force?: boolean }) => {
     try {
       const newEvent = await createSchedule(inputData);
       setSchedules((prev) => [...prev, newEvent]);
@@ -52,7 +63,7 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleUpdate = async (id: string, inputData: Partial<CreateScheduleInput>) => {
+  const handleUpdate = async (id: string, inputData: Partial<CreateScheduleInput> & { force?: boolean }) => {
     try {
       const updatedEvent = await updateSchedule(id, inputData);
       setSchedules((prev) =>
@@ -64,10 +75,19 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, deleteMode?: 'all' | 'current') => {
     try {
-      await deleteSchedule(id);
-      setSchedules((prev) => prev.filter((item) => item._id !== id));
+      const res = await deleteSchedule(id, deleteMode);
+      const targetId = res.id;
+      setSchedules((prev) =>
+        prev.filter((item) => {
+          if (deleteMode === 'current') {
+            return item._id !== id;
+          } else {
+            return item._id !== targetId && item.parentEvent !== targetId && !item._id.startsWith(`${targetId}_`);
+          }
+        })
+      );
     } catch (err: any) {
       console.error(err);
       throw err;
@@ -76,21 +96,18 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div>
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-          <Spin size="large" tip="Đang tải dữ liệu lịch trình..." />
-        </div>
-      ) : (
-        <Card bordered={false} style={{ borderRadius: '12px' }}>
+      <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <Spin spinning={loading} tip="Đang tải dữ liệu lịch trình...">
           <ScheduleCalendar
             schedules={schedules}
             isAdmin={isAdmin}
             onCreate={handleCreate}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onFilterChange={setFilters}
           />
-        </Card>
-      )}
+        </Spin>
+      </Card>
     </div>
   );
 };
