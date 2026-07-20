@@ -26,6 +26,7 @@ export interface ISchedule extends Document {
   endTime: Date;
   color: string;
   category?: string;
+  tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   createdBy: Types.ObjectId | IUser;
   recurrence?: IRecurrence;
@@ -34,3 +35,24 @@ export interface ISchedule extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface ICategory extends Document {
+  name: string;
+  color: string;
+  icon?: string;
+  createdBy?: Types.ObjectId | IUser;
+  isSystem: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface INotification extends Document {
+  recipient: Types.ObjectId | IUser;
+  type: 'reminder' | 'system' | 'update';
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+

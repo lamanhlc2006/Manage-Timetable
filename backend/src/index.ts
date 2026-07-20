@@ -6,6 +6,9 @@ import { connectDB } from './config/db';
 import authRoutes from './routes/authRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
 import userRoutes from './routes/userRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import categoryRoutes from './routes/categoryRoutes';
+import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
 
 // Load environment variables
 dotenv.config();
@@ -37,9 +40,11 @@ app.use(express.json()); // Body parser for JSON payloads
 app.use(cookieParser());
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/schedules', scheduleRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/schedules', scheduleLimiter, scheduleRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Root route for simple API check
 app.get('/', (req, res) => {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Button, Avatar, Tag, Popconfirm } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Layout, Menu, Button, Avatar, Tag, Popconfirm, Badge, Popover, List, Typography, Empty, Spin, Tooltip } from 'antd';
 import {
   CalendarOutlined,
   LogoutOutlined,
@@ -7,15 +7,29 @@ import {
   MenuUnfoldOutlined,
   UserOutlined,
   ScheduleOutlined,
-  PlusCircleOutlined
+  PlusCircleOutlined,
+  BellOutlined,
+  CheckOutlined,
+  InfoCircleOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
+import {
+  fetchNotifications,
+  markNotificationAsRead,
+  NotificationItem,
+} from '../services/notificationService';
 
 const { Header, Sider, Content } = Layout;
+const { Text } = Typography;
 
 export const CommonLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -30,6 +44,40 @@ export const CommonLayout: React.FC = () => {
       localStorage.removeItem('user'); // Clear corrupted user state
     }
   }
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoadingNotifs(true);
+      const data = await fetchNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setLoadingNotifs(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadNotifications();
+    // Periodically poll for new notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  const handleMarkRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await markNotificationAsRead(id);
+      setNotifications((prev) =>
+        prev.map((item) => (item._id === id ? { ...item, isRead: true } : item))
+      );
+    } catch (err) {
+      console.error('Error marking notification read:', err);
+    }
+  };
+
+  const unreadNotifications = notifications.filter((n) => !n.isRead);
 
   const handleLogout = async () => {
     try {
@@ -46,10 +94,93 @@ export const CommonLayout: React.FC = () => {
 
   const getActiveKey = () => {
     if (location.pathname === '/dashboard') return ['dashboard'];
+    if (location.pathname === '/analytics') return ['analytics'];
     if (location.pathname === '/create-schedule') return ['create-schedule'];
     if (location.pathname === '/users') return ['users'];
     return [];
   };
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'system':
+        return <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '18px' }} />;
+      case 'reminder':
+        return <ClockCircleOutlined style={{ color: '#faad14', fontSize: '18px' }} />;
+      case 'update':
+      default:
+        return <InfoCircleOutlined style={{ color: '#1890ff', fontSize: '18px' }} />;
+    }
+  };
+
+  const notifPopoverContent = (
+    <div style={{ width: 340, maxHeight: 400, overflowY: 'auto' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #f0f0f0',
+          marginBottom: '8px',
+        }}
+      >
+        <Text strong style={{ fontSize: '15px' }}>
+          Thông báo
+        </Text>
+        {unreadNotifications.length > 0 && (
+          <Tag color="red">{unreadNotifications.length} chưa đọc</Tag>
+        )}
+      </div>
+
+      {loadingNotifs && notifications.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '24px' }}>
+          <Spin size="small" />
+        </div>
+      ) : unreadNotifications.length === 0 ? (
+        <Empty description="Không có thông báo mới" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        <List
+          itemLayout="horizontal"
+          dataSource={unreadNotifications}
+          renderItem={(item) => (
+            <List.Item
+              style={{
+                padding: '10px 8px',
+                borderRadius: '6px',
+                marginBottom: '4px',
+                background: '#e6f7ff',
+                transition: 'background 0.3s',
+              }}
+              actions={[
+                <Tooltip title="Đánh dấu đã đọc" key="read">
+                  <Button
+                    type="text"
+                    size="small"
+                    shape="circle"
+                    icon={<CheckOutlined style={{ color: '#52c41a' }} />}
+                    onClick={(e) => handleMarkRead(item._id, e)}
+                  />
+                </Tooltip>,
+              ]}
+            >
+              <List.Item.Meta
+                avatar={getNotifIcon(item.type)}
+                title={<Text strong style={{ fontSize: '13px' }}>{item.title}</Text>}
+                description={
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#555' }}>{item.message}</div>
+                    <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                      {new Date(item.createdAt).toLocaleString('vi-VN')}
+                    </div>
+                  </div>
+                }
+              />
+            </List.Item>
+          )}
+        />
+      )}
+    </div>
+  );
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f4f6fc' }}>
@@ -92,6 +223,13 @@ export const CommonLayout: React.FC = () => {
           >
             Thời gian biểu
           </Menu.Item>
+          <Menu.Item
+            key="analytics"
+            icon={<BarChartOutlined />}
+            onClick={() => navigate('/analytics')}
+          >
+            Thống kê báo cáo
+          </Menu.Item>
           {user && user.role === 'admin' && (
             <>
               <Menu.Item
@@ -131,7 +269,26 @@ export const CommonLayout: React.FC = () => {
             style={{ fontSize: '16px', width: 64, height: 64 }}
           />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Notification Bell with Badge and Popover */}
+            <Popover
+              content={notifPopoverContent}
+              trigger="click"
+              placement="bottomRight"
+              onOpenChange={(open) => {
+                if (open) loadNotifications();
+              }}
+            >
+              <Badge count={unreadNotifications.length} overflowCount={99} size="small">
+                <Button
+                  type="text"
+                  shape="circle"
+                  icon={<BellOutlined style={{ fontSize: '18px', color: '#555' }} />}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                />
+              </Badge>
+            </Popover>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
               <span style={{ fontWeight: 500, color: '#333' }}>

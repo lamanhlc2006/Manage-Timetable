@@ -36,6 +36,12 @@ const ScheduleSchema = new Schema<ISchedule>(
       trim: true,
       default: 'Học tập',
     },
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     priority: {
       type: String,
       enum: ['low', 'medium', 'high'],
@@ -76,6 +82,7 @@ const ScheduleSchema = new Schema<ISchedule>(
 
 // Indexes for performance optimization
 ScheduleSchema.index({ category: 1 });
+ScheduleSchema.index({ tags: 1 });
 ScheduleSchema.index({ priority: 1 });
 ScheduleSchema.index({ startTime: 1, endTime: 1 });
 ScheduleSchema.index({ title: 'text', description: 'text' });

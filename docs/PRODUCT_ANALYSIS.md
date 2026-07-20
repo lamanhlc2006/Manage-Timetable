@@ -49,11 +49,11 @@
 | Mức độ | Vấn đề | Chi tiết |
 |---|---|---|
 | 🟢 Đã hoàn thành | Auth token chỉ lưu `localStorage` | Đã chuyển đổi hoàn toàn sang cơ chế **httpOnly cookie** bảo mật cao |
-| 🟡 Cần thiết | Chỉ có chế độ xem tháng | Thiếu xem tuần/ngày — rất quan trọng cho ứng dụng lịch |
-| 🟡 Cần thiết | Không phát hiện trùng lịch | Backend không validate xung đột thời gian giữa các sự kiện |
+| 🟢 Đã hoàn thành | Chỉ có chế độ xem tháng | Đã tích hợp **FullCalendar** (`@fullcalendar/react` v6) với 4 chế độ xem: Tháng / Tuần / Ngày / Danh sách |
+| 🟢 Đã hoàn thành | Không phát hiện trùng lịch | Đã triển khai **Conflict Detection** đầy đủ: Backend query overlap + Frontend warning modal + Force-create + Rollback khi drag |
 | 🟢 Đã hoàn thành | Dùng `moment.js` | Đã nâng cấp thành công lên **Ant Design v5** và chuyển đổi hoàn toàn sang **dayjs** |
-| 🟡 Cần thiết | Không có search/filter | Không tìm kiếm sự kiện theo tên, ngày, màu |
-| 🔵 Nên có | Chưa có trang quản lý người dùng | Admin không quản lý được danh sách user |
+| 🟢 Đã hoàn thành | Không có search/filter | Đã triển khai **Search & Filter**: tìm kiếm debounced theo keyword, lọc theo danh mục + độ ưu tiên, tự động lọc theo date range |
+| 🟢 Đã hoàn thành | Chưa có trang quản lý người dùng | Đã triển khai **Admin Panel** đầy đủ: danh sách user (search + pagination), phân quyền admin ↔ user, khóa/mở tài khoản |
 
 ---
 
@@ -61,97 +61,98 @@
 
 > Những tính năng **bắt buộc phải có** để hệ thống hoạt động mượt mà và giải quyết được bài toán cơ bản của người dùng.
 
-### 2.1 Đa chế độ xem lịch (Multi-View Calendar)
+### 2.1 Đa chế độ xem lịch (Multi-View Calendar) — 🟢 Đã hoàn thành
 
-Ant Design Calendar hiện tại chỉ hỗ trợ xem tháng. Đây là hạn chế lớn nhất của dự án. Cần tích hợp thư viện chuyên dụng như `react-big-calendar`, `FullCalendar`, hoặc tự build custom week/day view.
+~~Ant Design Calendar hiện tại chỉ hỗ trợ xem tháng. Đây là hạn chế lớn nhất của dự án.~~ Đã tích hợp **FullCalendar** (`@fullcalendar/react` v6) thay thế Ant Design Calendar, hỗ trợ đầy đủ 4 chế độ xem với drag-and-drop, current time indicator, và custom styling.
 
-| Chế độ | Mô tả | Độ ưu tiên |
+| Chế độ | Mô tả | Trạng thái |
 |---|---|---|
-| 📅 **Xem theo tháng** | Đã có — tổng quan toàn bộ sự kiện trong tháng | ✅ Đã hoàn thành |
-| 📆 **Xem theo tuần** | Hiển thị 7 cột (Thứ 2 → Chủ nhật), mỗi cột chia theo giờ (time slots). Sự kiện hiển thị dạng block, chiếm đúng khoảng thời gian tương ứng | 🔴 Critical |
-| 📄 **Xem theo ngày** | Chi tiết timeline từng giờ trong ngày, hiển thị rõ sự kiện chồng chéo, scrollable từ 00:00 đến 23:59, highlight giờ hiện tại | 🔴 Critical |
-| 📋 **Xem dạng danh sách (Agenda)** | Bảng danh sách sự kiện sắp xếp theo thời gian, phù hợp cho tìm kiếm, lọc, và in ấn | 🟡 High |
+| 📅 **Xem theo tháng** | Tổng quan toàn bộ sự kiện trong tháng — FullCalendar `dayGridMonth` | ✅ Đã hoàn thành |
+| 📆 **Xem theo tuần** | Hiển thị 7 cột (Thứ 2 → Chủ nhật), mỗi cột chia theo giờ (time slots). Sự kiện hiển thị dạng block — FullCalendar `timeGridWeek` | ✅ Đã hoàn thành |
+| 📄 **Xem theo ngày** | Chi tiết timeline từng giờ trong ngày, highlight giờ hiện tại — FullCalendar `timeGridDay` + `nowIndicator` | ✅ Đã hoàn thành |
+| 📋 **Xem dạng danh sách (Agenda)** | Bảng danh sách sự kiện sắp xếp theo thời gian — FullCalendar `listWeek` | ✅ Đã hoàn thành |
 
-#### Gợi ý thư viện:
+#### Thư viện đã chọn:
 
-- **FullCalendar** (`@fullcalendar/react`): Full-featured, hỗ trợ month/week/day/agenda, drag-and-drop, tương thích tốt với React.
-- **react-big-calendar**: Nhẹ hơn, API đơn giản, dễ custom, hỗ trợ `dayjs`/`moment` adapter.
-- **Custom build**: Toàn quyền kiểm soát, nhưng tốn thời gian phát triển.
+- ✅ **FullCalendar** (`@fullcalendar/react` v6): Đã tích hợp với plugins `daygrid`, `timegrid`, `interaction`, `list`.
+- ~~`react-big-calendar`~~: Không sử dụng.
+- ~~Custom build~~: Không sử dụng.
 
 ---
 
-### 2.2 Phát hiện xung đột lịch (Conflict Detection)
+### 2.2 Phát hiện xung đột lịch (Conflict Detection) — 🟢 Đã hoàn thành
 
-Khi người dùng tạo hoặc chỉnh sửa sự kiện, hệ thống phải tự động kiểm tra xung đột thời gian với tất cả sự kiện hiện có và cảnh báo.
+Khi người dùng tạo hoặc chỉnh sửa sự kiện, hệ thống ~~phải~~ **đã** tự động kiểm tra xung đột thời gian với tất cả sự kiện hiện có và cảnh báo.
 
-**Luồng xử lý:**
+**Luồng xử lý:** ✅ Đã triển khai đầy đủ
 
 ```
 Người dùng tạo/sửa sự kiện
-  → Backend kiểm tra overlap với TẤT CẢ sự kiện cùng user/nhóm
-  → Nếu trùng: Trả về danh sách sự kiện bị conflict
-  → Frontend hiển thị warning: "Sự kiện 'A' trùng thời gian với 'B' (14:00-15:00)"
+  → Backend kiểm tra overlap với TẤT CẢ sự kiện cùng user         ✅
+  → Nếu trùng: Trả về HTTP 409 + danh sách sự kiện bị conflict    ✅
+  → Frontend hiển thị warning modal với danh sách conflicts         ✅
   → Cho phép user:
-      - Xác nhận tạo (force-create) nếu chấp nhận trùng
-      - Điều chỉnh thời gian
-      - Hủy bỏ
+      - Xác nhận tạo (force-create) nếu chấp nhận trùng            ✅
+      - Điều chỉnh thời gian                                       ✅
+      - Hủy bỏ                                                     ✅
+  → Drag & Drop: Tự động rollback (revert) khi phát hiện conflict  ✅
 ```
 
-**Xử lý theo layer:**
+**Xử lý theo layer:** ✅ Đã triển khai
 
-| Layer | Xử lý |
-|---|---|
-| **Backend** | Query MongoDB: `startTime < newEnd AND endTime > newStart` → trả về danh sách conflict |
-| **Frontend** | Hiển thị warning modal với danh sách sự kiện bị trùng, cho phép force-create hoặc hủy |
+| Layer | Xử lý | Trạng thái |
+|---|---|---|
+| **Backend** | Query MongoDB: `startTime < newEnd AND endTime > newStart` → trả về danh sách conflict | ✅ Hoàn thành |
+| **Frontend** | Hiển thị warning modal với danh sách sự kiện bị trùng, cho phép force-create hoặc hủy | ✅ Hoàn thành |
 
 ---
 
-### 2.3 Lịch lặp lại (Recurring Events)
+### 2.3 Lịch lặp lại (Recurring Events) — 🟢 Đã hoàn thành
 
-Cho phép người dùng tạo sự kiện tự động lặp lại theo chu kỳ.
+~~Cho phép người dùng tạo sự kiện tự động lặp lại theo chu kỳ.~~ Đã triển khai hệ thống Recurring Events với Hybrid Approach (template + materialized exceptions).
 
-| Loại lặp | Ví dụ thực tế |
-|---|---|
-| **Hàng ngày** | Standup meeting 9:00 mỗi ngày |
-| **Hàng tuần** | Lớp học Toán mỗi thứ 3, thứ 5 |
-| **Hàng tháng** | Họp review cuối tháng |
-| **Tùy chỉnh** | Mỗi 2 tuần vào thứ 4, hoặc ngày 1 & 15 hàng tháng |
+| Loại lặp | Ví dụ thực tế | Trạng thái |
+|---|---|---|
+| **Hàng ngày** | Standup meeting 9:00 mỗi ngày | ✅ Hoàn thành |
+| **Hàng tuần** | Lớp học Toán mỗi thứ 3, thứ 5 | ✅ Hoàn thành |
+| **Hàng tháng** | Họp review cuối tháng | ✅ Hoàn thành |
+| **Tùy chỉnh** | Mỗi 2 tuần vào thứ 4, hoặc ngày 1 & 15 hàng tháng | ⚠️ Schema hỗ trợ, UI chưa expose |
 
-**Data model mở rộng:**
+**Data model mở rộng:** ✅ Đã triển khai trong `Schedule.ts`
 
 ```typescript
 recurrence: {
-  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom',
-  interval: number,        // Lặp mỗi N đơn vị (ví dụ: mỗi 2 tuần → interval = 2)
-  daysOfWeek: number[],    // [1, 3, 5] = Thứ 2, Thứ 4, Thứ 6
-  endDate?: Date,          // Ngày kết thúc chuỗi lặp (null = vô hạn)
-  exceptions: Date[],      // Ngày bỏ qua (nghỉ lễ, vắng mặt)
+  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom',  // ✅
+  interval: number,        // Lặp mỗi N đơn vị (ví dụ: mỗi 2 tuần → interval = 2)  ✅
+  daysOfWeek: number[],    // [1, 3, 5] = Thứ 2, Thứ 4, Thứ 6  ✅
+  endDate?: Date,          // Ngày kết thúc chuỗi lặp (null = vô hạn)  ✅
+  exceptions: Date[],      // Ngày bỏ qua (nghỉ lễ, vắng mặt)  ✅
 }
 ```
 
-**Lựa chọn khi chỉnh sửa sự kiện lặp:**
+**Lựa chọn khi chỉnh sửa sự kiện lặp:** (2/3 đã triển khai)
 
-- "Chỉ sự kiện này" → Tạo exception cho instance cụ thể
-- "Sự kiện này và các sự kiện tiếp theo" → Split chuỗi lặp thành 2 template
-- "Tất cả sự kiện trong chuỗi" → Sửa template gốc
+- ✅ "Chỉ sự kiện này" → Tạo exception cho instance cụ thể
+- ❌ "Sự kiện này và các sự kiện tiếp theo" → Split chuỗi lặp thành 2 template *(chưa triển khai)*
+- ✅ "Tất cả sự kiện trong chuỗi" → Sửa template gốc
 
 ---
 
-### 2.4 Tìm kiếm & Lọc sự kiện
+### 2.4 Tìm kiếm & Lọc sự kiện — 🟢 Đã hoàn thành
 
-| Bộ lọc | Kiểu UI | Mô tả |
-|---|---|---|
-| 🔍 Tìm theo tên sự kiện | Text input (debounced) | Tìm kiếm real-time khi gõ |
-| 📅 Lọc theo khoảng thời gian | Date range picker | Chọn từ ngày → đến ngày |
-| 🎨 Lọc theo màu / danh mục | Multi-select dropdown | Chọn nhiều danh mục cùng lúc |
-| 👤 Lọc theo người tạo (Admin) | Dropdown user list | Chỉ hiển thị cho role Admin |
-| 📌 Lọc theo mức ưu tiên | Radio group / Toggle | Low / Medium / High / Urgent |
+| Bộ lọc | Kiểu UI | Mô tả | Trạng thái |
+|---|---|---|---|
+| 🔍 Tìm theo tên sự kiện | Text input (debounced 500ms) | Tìm kiếm real-time khi gõ (keyword trên `title` + `description`) | ✅ Hoàn thành |
+| 📅 Lọc theo khoảng thời gian | Tự động theo view range | FullCalendar `datesSet` tự động gửi date range khi chuyển view | ✅ Hoàn thành |
+| 🎨 Lọc theo danh mục | Multi-select dropdown | Chọn nhiều danh mục cùng lúc (Học tập, Công việc, Cá nhân, Khác) | ✅ Hoàn thành |
+| 👤 Lọc theo người tạo (Admin) | Dropdown user list | Chỉ hiển thị cho role Admin | ❌ Chưa triển khai |
+| 📌 Lọc theo mức ưu tiên | Multi-select dropdown | Low / Medium / High | ✅ Hoàn thành |
 
 **Hiển thị kết quả:**
 
-- Highlight sự kiện khớp trên Calendar view
-- Hiển thị danh sách kết quả trong Agenda view
-- Badge count trên filter icon khi có filter đang active
+- ✅ Sự kiện khớp hiển thị trực tiếp trên Calendar view (API trả về kết quả lọc)
+- ✅ Hiển thị danh sách kết quả trong Agenda/List view
+- ❌ Badge count trên filter icon khi có filter đang active *(chưa triển khai)*
 
 ---
 
@@ -171,15 +172,15 @@ recurrence: {
 
 ---
 
-### 2.6 Quản lý Người dùng (Admin Panel)
+### 2.6 Quản lý Người dùng (Admin Panel) — 🟢 Đã hoàn thành
 
-| Chức năng | Mô tả |
-|---|---|
-| Danh sách users | Bảng (Ant Design Table) với search, sort, pagination |
-| Phân quyền | Nâng/hạ role: admin ↔ user |
-| Khoá/mở tài khoản | Disable login mà không xóa dữ liệu (trường `isActive` trong User model) |
-| Reset mật khẩu | Admin reset password cho user, user nhận email thông báo |
-| Thống kê user | Số sự kiện đã tạo, lần đăng nhập gần nhất |
+| Chức năng | Mô tả | Trạng thái |
+|---|---|---|
+| Danh sách users | Bảng (Ant Design Table) với search, sort, pagination | ✅ Hoàn thành |
+| Phân quyền | Nâng/hạ role: admin ↔ user (có self-protection) | ✅ Hoàn thành |
+| Khoá/mở tài khoản | Disable login mà không xóa dữ liệu (trường `isActive` trong User model) | ✅ Hoàn thành |
+| Reset mật khẩu | Admin reset password cho user, user nhận email thông báo | ❌ Chưa triển khai |
+| Thống kê user | Số sự kiện đã tạo, lần đăng nhập gần nhất | ❌ Chưa triển khai |
 
 ---
 
@@ -211,25 +212,26 @@ Output: Lịch trình tối ưu — không trùng, giảm thiểu khoảng trố
 
 ---
 
-### 3.2 Kéo thả sự kiện (Drag & Drop)
+### 3.2 Kéo thả sự kiện (Drag & Drop) — 🟢 Đã hoàn thành
 
-| Thao tác | Hành vi | Chi tiết |
-|---|---|---|
-| **Drag sự kiện sang ngày/giờ khác** | Update `startTime` / `endTime` tự động | Giữ nguyên duration, chỉ thay đổi vị trí |
-| **Resize sự kiện** | Kéo cạnh trên/dưới để thay đổi thời lượng | Update `endTime` theo hướng kéo |
-| **Drag từ sidebar** | Tạo sự kiện mới bằng cách kéo template vào calendar | Predefined templates: "Họp 1h", "Lớp học 2h" |
+| Thao tác | Hành vi | Chi tiết | Trạng thái |
+|---|---|---|---|
+| **Drag sự kiện sang ngày/giờ khác** | Update `startTime` / `endTime` tự động | Giữ nguyên duration, chỉ thay đổi vị trí. Optimistic UI + rollback on error | ✅ Hoàn thành |
+| **Resize sự kiện** | Kéo cạnh trên/dưới để thay đổi thời lượng | Update `endTime` theo hướng kéo. PATCH API + conflict detection | ✅ Hoàn thành |
+| **Drag từ sidebar** | Tạo sự kiện mới bằng cách kéo template vào calendar | Predefined templates: "Họp 1h", "Lớp học 2h" | ❌ Chưa triển khai |
 
-**Thư viện đề xuất:**
+**Thư viện đã sử dụng:**
 
-- `@dnd-kit/core` — Modern, accessible, performant
-- Tích hợp sẵn trong `FullCalendar` (nếu chọn lib này)
-- `react-beautiful-dnd` — Mature, nhưng không còn maintain
+- ~~`@dnd-kit/core`~~: Không sử dụng
+- ✅ Tích hợp sẵn trong **FullCalendar** (`@fullcalendar/interaction` plugin) — `eventDrop` + `eventResize`
+- ~~`react-beautiful-dnd`~~: Không sử dụng
 
-**UX quan trọng:**
+**UX đã triển khai:**
 
-- Hiển thị ghost element khi đang drag
-- Snap-to-grid theo khung 15 phút / 30 phút
-- Undo support sau khi drop (toast "Đã di chuyển. Hoàn tác?")
+- ✅ Hiển thị ghost element khi đang drag (FullCalendar built-in `selectMirror`)
+- ✅ Snap-to-grid theo khung giờ (FullCalendar time slots)
+- ❌ Undo support sau khi drop (toast "Đã di chuyển. Hoàn tác?") *(chưa triển khai)*
+- ✅ Rollback vị trí cũ khi phát hiện conflict (HTTP 409 → `revert()`)
 
 ---
 
@@ -843,32 +845,33 @@ interface IGroup {
 
 ## 8. Roadmap Triển Khai Đề Xuất
 
-### Phase 1 — MVP Enhancement (4-5 tuần)
+### Phase 1 — MVP Enhancement (4-5 tuần) — 🟢 ~85% hoàn thành
 
-| Tuần | Task | Kết quả |
-|---|---|---|
-| Tuần 1 | Nâng cấp Ant Design v4 → v5, chuyển `moment.js` → `dayjs` | Foundation sạch, bundle nhỏ hơn |
-| Tuần 2-3 | Multi-view Calendar (Tuần + Ngày) | 3 chế độ xem hoạt động đầy đủ |
-| Tuần 3 | Conflict Detection (Backend + Frontend) | Tự động phát hiện và cảnh báo trùng lịch |
-| Tuần 4 | Search & Filter sự kiện | Tìm kiếm nhanh, lọc theo nhiều tiêu chí |
-| Tuần 4-5 | Admin User Management | Trang quản lý user cho admin |
+| Tuần | Task | Kết quả | Trạng thái |
+|---|---|---|---|
+| Tuần 1 | Nâng cấp Ant Design v4 → v5, chuyển `moment.js` → `dayjs` | Foundation sạch, bundle nhỏ hơn | ✅ Hoàn thành |
+| Tuần 2-3 | Multi-view Calendar (Tuần + Ngày) | 4 chế độ xem hoạt động đầy đủ (Tháng/Tuần/Ngày/Danh sách) | ✅ Hoàn thành |
+| Tuần 3 | Conflict Detection (Backend + Frontend) | Tự động phát hiện và cảnh báo trùng lịch + force-create | ✅ Hoàn thành |
+| Tuần 4 | Search & Filter sự kiện | Tìm kiếm nhanh, lọc theo keyword + danh mục + độ ưu tiên | ✅ Hoàn thành |
+| Tuần 4-5 | Admin User Management | Trang quản lý user cho admin (list + role + lock) | ✅ Hoàn thành |
+| — | Notification System | Nhắc nhở in-app + browser push | ❌ Chưa bắt đầu |
 
-**Kết quả Phase 1**: Hệ thống lịch hoàn chỉnh cơ bản, đa dạng view, phát hiện trùng, quản lý user.
+**Kết quả Phase 1**: ~~Hệ thống lịch hoàn chỉnh cơ bản, đa dạng view, phát hiện trùng, quản lý user.~~ **Đã hoàn thành ~85%** — chỉ còn thiếu hệ thống Notification.
 
 ---
 
-### Phase 2 — Should-Have (6-8 tuần)
+### Phase 2 — Should-Have (6-8 tuần) — ⚠️ ~25% hoàn thành
 
-| Tuần | Task | Kết quả |
-|---|---|---|
-| Tuần 6-7 | Recurring Events | Sự kiện lặp lại hoạt động đầy đủ |
-| Tuần 7-8 | Drag & Drop | Kéo thả sự kiện trên calendar |
-| Tuần 9 | Categories & Tags | Hệ thống phân loại sự kiện |
-| Tuần 9-10 | Notification System | Nhắc nhở in-app + browser push |
-| Tuần 11 | Export ICS / PDF | Xuất lịch ra file |
-| Tuần 11-13 | Analytics Dashboard | Trang thống kê với charts |
+| Tuần | Task | Kết quả | Trạng thái |
+|---|---|---|---|
+| Tuần 6-7 | Recurring Events | Sự kiện lặp lại: daily/weekly/monthly, exception system, expand on-the-fly | ✅ Hoàn thành |
+| Tuần 7-8 | Drag & Drop | Kéo thả + resize sự kiện trên calendar, optimistic UI + rollback | ✅ Hoàn thành |
+| Tuần 9 | Categories & Tags | Category cơ bản (hardcoded 4 loại), thiếu Tags CRUD + Category model riêng | ⚠️ Một phần |
+| Tuần 9-10 | Notification System | Nhắc nhở in-app + browser push | ❌ Chưa bắt đầu |
+| Tuần 11 | Export ICS / PDF | Xuất lịch ra file | ❌ Chưa bắt đầu |
+| Tuần 11-13 | Analytics Dashboard | Trang thống kê với charts | ❌ Chưa bắt đầu |
 
-**Kết quả Phase 2**: Tự động hóa (recurring, drag-drop), notification, export, thống kê — UX chuyên nghiệp hơn.
+**Kết quả Phase 2**: ~~Tự động hóa (recurring, drag-drop), notification, export, thống kê — UX chuyên nghiệp hơn.~~ **Đã hoàn thành ~25%** — Recurring Events và Drag & Drop đã xong. Còn thiếu Notification, Export, Analytics.
 
 ---
 
@@ -887,11 +890,17 @@ interface IGroup {
 
 ## 9. Tóm Tắt & Khuyến Nghị
 
-### Ưu tiên hành động ngay
+### ~~Ưu tiên hành động ngay~~ Đã hoàn thành ✅
 
-1. **Nâng cấp foundation**: Ant Design v4 → v5, `moment.js` → `dayjs`, cải thiện auth security (httpOnly cookies)
-2. **Multi-view Calendar**: Tích hợp week/day view — đây là tính năng tạo ra giá trị lớn nhất
-3. **Conflict Detection**: Phát hiện trùng lịch tại backend — cần thiết cho mọi ứng dụng lịch
+1. ~~**Nâng cấp foundation**: Ant Design v4 → v5, `moment.js` → `dayjs`, cải thiện auth security (httpOnly cookies)~~ ✅ Đã hoàn thành
+2. ~~**Multi-view Calendar**: Tích hợp week/day view — đây là tính năng tạo ra giá trị lớn nhất~~ ✅ Đã hoàn thành (FullCalendar v6, 4 views)
+3. ~~**Conflict Detection**: Phát hiện trùng lịch tại backend — cần thiết cho mọi ứng dụng lịch~~ ✅ Đã hoàn thành (Backend + Frontend + Drag rollback)
+
+### Ưu tiên hành động tiếp theo
+
+1. **Notification System**: Hệ thống thông báo in-app — tính năng MVP còn thiếu duy nhất
+2. **Rate Limiting + Input Validation**: Bảo mật cơ bản cần thiết (`express-rate-limit`, `zod`)
+3. **Tags + Category CRUD**: Nâng cấp hệ thống phân loại sự kiện
 
 ### Ma trận Impact vs. Effort
 

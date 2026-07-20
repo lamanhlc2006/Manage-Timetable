@@ -1,5 +1,7 @@
 import { Response } from 'express';
+import ical, { ICalCalendarMethod } from 'ical-generator';
 import { Schedule } from '../models/Schedule';
+import { Notification } from '../models/Notification';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { expandRecurringEvents } from '../config/recurrenceHelper';
 
@@ -51,7 +53,7 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
  * @access  Private/Admin
  */
 export const createSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { title, description, startTime, endTime, color, category, priority } = req.body;
+  const { title, description, startTime, endTime, color, category, priority, tags } = req.body;
 
   try {
     if (!req.user) {
@@ -99,6 +101,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       endTime: end,
       color,
       category,
+      tags: tags || [],
       priority,
       recurrence: req.body.recurrence,
       createdBy: req.user._id,
@@ -120,7 +123,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
  */
 export const updateSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { title, description, startTime, endTime, color, category, priority, recurrence, recurrenceEditMode } = req.body;
+  const { title, description, startTime, endTime, color, category, priority, tags, recurrence, recurrenceEditMode } = req.body;
 
   try {
     let targetId = id;
@@ -192,6 +195,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
         endTime: end,
         color: color !== undefined ? color : schedule.color,
         category: category !== undefined ? category : schedule.category,
+        tags: tags !== undefined ? tags : schedule.tags,
         priority: priority !== undefined ? priority : schedule.priority,
         createdBy: req.user?._id || schedule.createdBy,
         isException: true,
@@ -208,6 +212,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     if (description !== undefined) updateData.description = description;
     if (color !== undefined) updateData.color = color;
     if (category !== undefined) updateData.category = category;
+    if (tags !== undefined) updateData.tags = tags;
     if (priority !== undefined) updateData.priority = priority;
     if (recurrence !== undefined) updateData.recurrence = recurrence;
     if (startTime !== undefined) updateData.startTime = start;
@@ -218,6 +223,20 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       { $set: updateData },
       { new: true, runValidators: true }
     ).populate('createdBy', 'username email role');
+
+    // Send notification if admin updates schedule belonging to another user
+    const targetUserId = (schedule.createdBy as any)._id
+      ? (schedule.createdBy as any)._id.toString()
+      : schedule.createdBy.toString();
+
+    if (req.user && targetUserId !== req.user._id.toString()) {
+      await Notification.create({
+        recipient: targetUserId,
+        type: 'update',
+        title: 'Lịch trình đã được thay đổi',
+        message: `Lịch trình "${schedule.title}" của bạn đã được quản trị viên cập nhật.`,
+      });
+    }
 
     res.json(updatedSchedule);
   } catch (error: any) {
@@ -265,6 +284,20 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
 
       res.json({ message: 'Lịch trình ảo đã được loại bỏ thành công', id });
       return;
+    }
+
+    // Send notification if admin deletes schedule belonging to another user
+    const targetUserId = (schedule.createdBy as any)._id
+      ? (schedule.createdBy as any)._id.toString()
+      : schedule.createdBy.toString();
+
+    if (req.user && targetUserId !== req.user._id.toString()) {
+      await Notification.create({
+        recipient: targetUserId,
+        type: 'update',
+        title: 'Lịch trình đã bị xóa',
+        message: `Lịch trình "${schedule.title}" của bạn đã bị quản trị viên xóa.`,
+      });
     }
 
     await Schedule.findByIdAndDelete(targetId);
@@ -350,3 +383,46 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
     res.status(500).json({ message: error.message || 'Server error' });
   }
 };
+
+/**
+ * @desc    Export user schedules as iCalendar (.ics)
+ * @route   GET /api/schedules/export/ics
+ * @access  Private
+ */
+export const exportIcs = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const schedules = await Schedule.find({ createdBy: req.user._id });
+
+    const calendar = ical({
+      name: 'Lịch trình cá nhân - Timetable Management',
+      method: ICalCalendarMethod.PUBLISH,
+    });
+
+    schedules.forEach((sch) => {
+      calendar.createEvent({
+        id: sch._id.toString(),
+        start: sch.startTime,
+        end: sch.endTime,
+        summary: sch.title,
+        description: sch.description ? `${sch.description}\nDanh mục: ${sch.category || 'N/A'}` : `Danh mục: ${sch.category || 'N/A'}`,
+        location: sch.category || '',
+      });
+    });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="timetable.ics"',
+    });
+
+    res.end(calendar.toString());
+  } catch (error: any) {
+    console.error('Export ICS error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+

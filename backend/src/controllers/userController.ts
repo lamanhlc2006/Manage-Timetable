@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { User } from '../models/User';
+import { Notification } from '../models/Notification';
 import { AuthRequest } from '../middlewares/authMiddleware';
 
 /**
@@ -116,6 +117,15 @@ export const toggleUserStatus = async (req: AuthRequest, res: Response): Promise
 
     user.isActive = isActive;
     await user.save();
+
+    if (isActive === false) {
+      await Notification.create({
+        recipient: user._id,
+        type: 'system',
+        title: 'Tài khoản đã bị khóa',
+        message: 'Tài khoản của bạn đã bị quản trị viên khóa.',
+      });
+    }
 
     res.json({
       _id: user._id,

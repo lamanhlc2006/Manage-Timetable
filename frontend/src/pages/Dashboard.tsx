@@ -3,6 +3,7 @@ import { Spin, Card, message } from 'antd';
 import {
   createSchedule,
   updateSchedule,
+  patchScheduleTime,
   deleteSchedule,
   searchSchedules,
   ScheduleEvent,
@@ -94,6 +95,18 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handlePatchTime = async (id: string, startTime: string, endTime: string, recurrenceEditMode?: 'all' | 'current') => {
+    try {
+      const updatedEvent = await patchScheduleTime(id, { startTime, endTime, recurrenceEditMode });
+      setSchedules((prev) =>
+        prev.map((item) => (item._id === id ? updatedEvent : item))
+      );
+    } catch (err: any) {
+      console.error(err);
+      throw err;
+    }
+  };
+
   return (
     <div>
       <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
@@ -104,6 +117,7 @@ export const Dashboard: React.FC = () => {
             onCreate={handleCreate}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onPatchTime={handlePatchTime}
             onFilterChange={setFilters}
           />
         </Spin>

@@ -4,6 +4,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { CreateSchedule } from './pages/CreateSchedule';
 import { UserManagement } from './pages/UserManagement';
+import { Analytics } from './pages/Analytics';
 import { CommonLayout } from './components/CommonLayout';
 
 // Route wrapper to guard pages requiring authentication
@@ -49,9 +50,9 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }
         >
-          {/* Redirect root URL to /dashboard */}
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="analytics" element={<Analytics />} />
           <Route path="create-schedule" element={<CreateSchedule />} />
           <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
         </Route>

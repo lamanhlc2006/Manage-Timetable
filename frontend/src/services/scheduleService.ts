@@ -23,6 +23,7 @@ export interface ScheduleEvent {
   endTime: string; // ISO Date String
   color: string;
   category?: string;
+  tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   createdBy: UserRef;
   recurrence?: RecurrenceSettings;
@@ -39,6 +40,7 @@ export interface CreateScheduleInput {
   endTime: string; // ISO Date String
   color?: string;
   category?: string;
+  tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   recurrence?: RecurrenceSettings;
 }
@@ -101,11 +103,18 @@ const saveOfflineSchedules = (schedules: ScheduleEvent[]) => {
   localStorage.setItem('schedules_data', JSON.stringify(schedules));
 };
 
-export const fetchSchedules = async (): Promise<ScheduleEvent[]> => {
+export const fetchSchedules = async (params?: { startTime?: string; endTime?: string }): Promise<ScheduleEvent[]> => {
   if (isOffline()) {
-    return getOfflineSchedules();
+    let list = getOfflineSchedules();
+    if (params?.startTime) {
+      list = list.filter((s) => new Date(s.endTime) >= new Date(params.startTime!));
+    }
+    if (params?.endTime) {
+      list = list.filter((s) => new Date(s.startTime) <= new Date(params.endTime!));
+    }
+    return list;
   }
-  const response = await api.get<ScheduleEvent[]>('/schedules');
+  const response = await api.get<ScheduleEvent[]>('/schedules', { params });
   return response.data;
 };
 
@@ -159,6 +168,32 @@ export const updateSchedule = async (id: string, data: Partial<CreateScheduleInp
     return updatedEvent;
   }
   const response = await api.put<ScheduleEvent>(`/schedules/${id}`, data);
+  return response.data;
+};
+
+export const patchScheduleTime = async (
+  id: string,
+  data: { startTime: string; endTime: string; force?: boolean; recurrenceEditMode?: 'all' | 'current' }
+): Promise<ScheduleEvent> => {
+  if (isOffline()) {
+    const schedules = getOfflineSchedules();
+    const index = schedules.findIndex((item) => item._id === id);
+    if (index === -1) {
+      throw new Error('Không tìm thấy sự kiện');
+    }
+
+    const updatedEvent: ScheduleEvent = {
+      ...schedules[index],
+      startTime: data.startTime,
+      endTime: data.endTime,
+      updatedAt: new Date().toISOString(),
+    };
+
+    schedules[index] = updatedEvent;
+    saveOfflineSchedules(schedules);
+    return updatedEvent;
+  }
+  const response = await api.patch<ScheduleEvent>(`/schedules/${id}`, data);
   return response.data;
 };
 

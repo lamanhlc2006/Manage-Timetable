@@ -1,14 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space, Card } from 'antd';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space, Card, Tag, Tooltip, List } from 'antd';
 import dayjs from 'dayjs';
-import { ScheduleEvent, CreateScheduleInput } from '../services/scheduleService';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { ScheduleEvent, CreateScheduleInput, patchScheduleTime } from '../services/scheduleService';
+import {
+  fetchCategories,
+  createCategory,
+  deleteCategory,
+  CategoryItem,
+} from '../services/categoryService';
+import { downloadIcsFile, downloadPdfReport } from '../services/exportService';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  InfoCircleOutlined,
   SearchOutlined,
   ClearOutlined,
+  DownloadOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 
 import FullCalendar from '@fullcalendar/react';
@@ -19,19 +28,13 @@ import listPlugin from '@fullcalendar/list';
 
 const { Option } = Select;
 
-const CATEGORY_OPTIONS = [
-  { label: '📚 Học tập', value: 'Học tập' },
-  { label: '💼 Công việc', value: 'Công việc' },
-  { label: '👤 Cá nhân', value: 'Cá nhân' },
-  { label: '🔍 Khác', value: 'Khác' },
-];
-
 interface ScheduleCalendarProps {
   schedules: ScheduleEvent[];
   isAdmin: boolean;
   onCreate: (data: CreateScheduleInput & { force?: boolean }) => Promise<void>;
   onUpdate: (id: string, data: Partial<CreateScheduleInput> & { force?: boolean; recurrenceEditMode?: 'all' | 'current'; instanceDate?: string }) => Promise<void>;
   onDelete: (id: string, deleteMode?: 'all' | 'current') => Promise<void>;
+  onPatchTime?: (id: string, startTime: string, endTime: string, recurrenceEditMode?: 'all' | 'current') => Promise<void>;
   onFilterChange: (filters: {
     keyword?: string;
     categories?: string[];
@@ -47,12 +50,108 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onCreate,
   onUpdate,
   onDelete,
+  onPatchTime,
   onFilterChange,
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'view' | 'create' | 'edit'>('view');
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [form] = Form.useForm();
+  const calendarRef = useRef<FullCalendar>(null);
+
+  // Dynamic Categories state
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#1890ff');
+  const [newCatIcon, setNewCatIcon] = useState('📌');
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const data = await fetchCategories();
+      setCategoriesList(data);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const handleCreateCategorySubmit = async () => {
+    if (!newCatName.trim()) {
+      message.error('Vui lòng nhập tên danh mục!');
+      return;
+    }
+    try {
+      await createCategory({ name: newCatName.trim(), color: newCatColor, icon: newCatIcon });
+      message.success('Tạo danh mục mới thành công!');
+      setNewCatName('');
+      loadCategories();
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Lỗi tạo danh mục');
+    }
+  };
+
+  const handleDeleteCategorySubmit = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      message.success('Đã xóa danh mục!');
+      loadCategories();
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Không thể xóa danh mục');
+    }
+  };
+
+  // Keyboard Shortcuts (N: Quick Add, T: Today, D: Day, W: Week, M: Month)
+  useHotkeys('n', () => {
+    if (isAdmin && !isModalVisible) {
+      handleOpenCreateModal();
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('t', () => {
+    calendarRef.current?.getApi().today();
+  }, { enableOnFormTags: false });
+
+  useHotkeys('d', () => {
+    calendarRef.current?.getApi().changeView('timeGridDay');
+  }, { enableOnFormTags: false });
+
+  useHotkeys('w', () => {
+    calendarRef.current?.getApi().changeView('timeGridWeek');
+  }, { enableOnFormTags: false });
+
+  useHotkeys('m', () => {
+    calendarRef.current?.getApi().changeView('dayGridMonth');
+  }, { enableOnFormTags: false });
+
+  // Export Handlers
+  const handleExportIcs = async () => {
+    try {
+      message.loading({ content: 'Đang khởi tạo file .ics...', key: 'export_ics' });
+      await downloadIcsFile();
+      message.success({ content: 'Đã xuất file .ics thành công!', key: 'export_ics' });
+    } catch (err) {
+      console.error(err);
+      message.error({ content: 'Không thể xuất file .ics.', key: 'export_ics' });
+    }
+  };
+
+  const handleExportPdf = () => {
+    try {
+      if (schedules.length === 0) {
+        message.warning('Không có lịch trình nào để xuất PDF!');
+        return;
+      }
+      downloadPdfReport(schedules, 'BAO CAO THOI KHOA BIEU & LICH TRINH');
+      message.success('Đã tạo báo cáo PDF thành công!');
+    } catch (err) {
+      console.error(err);
+      message.error('Không thể tạo báo cáo PDF.');
+    }
+  };
 
   // Recurrence action dialog states
   const [isRecurrenceChoiceVisible, setIsRecurrenceChoiceVisible] = useState(false);
@@ -112,14 +211,6 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     triggerFilterChange('', [], [], currentRange);
   };
 
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
-
   // List of soft colors for styling events
   const colorOptions = [
     { label: 'Blue (Mặc định)', value: '#1890ff' },
@@ -142,6 +233,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     extendedProps: {
       description: schedule.description,
       category: schedule.category,
+      tags: schedule.tags || [],
       priority: schedule.priority,
       createdBy: schedule.createdBy,
       color: schedule.color,
@@ -173,7 +265,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       description: '',
       color: '#1890ff',
       range: [initialStart, initialEnd],
-      category: 'Học tập',
+      category: categoriesList[0]?.name || 'Học tập',
+      tags: [],
       priority: 'medium',
       recurrenceType: 'none',
       recurrenceInterval: 1,
@@ -194,6 +287,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       color: selectedEvent.color,
       range: [dayjs(selectedEvent.startTime), dayjs(selectedEvent.endTime)],
       category: selectedEvent.category || 'Học tập',
+      tags: selectedEvent.tags || [],
       priority: selectedEvent.priority || 'medium',
       recurrenceType: selectedEvent.recurrence?.type || 'none',
       recurrenceInterval: selectedEvent.recurrence?.interval || 1,
@@ -235,6 +329,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         endTime: endDayjs.toISOString(),
         color: values.color,
         category: values.category,
+        tags: values.tags,
         priority: values.priority,
         recurrence,
       };
@@ -369,6 +464,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       color: extended.color,
       description: extended.description,
       category: extended.category,
+      tags: extended.tags || [],
       priority: extended.priority,
       createdBy: extended.createdBy,
       recurrence: extended.recurrence,
@@ -402,7 +498,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       description: '',
       color: '#1890ff',
       range: [start, end],
-      category: 'Học tập',
+      category: categoriesList[0]?.name || 'Học tập',
+      tags: [],
       priority: 'medium',
       recurrenceType: 'none',
       recurrenceInterval: 1,
@@ -422,6 +519,48 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     triggerFilterChange(keyword, categories, priority, range);
   };
 
+  // Handle drag & drop and resize events on FullCalendar
+  const handleEventChange = async (changeInfo: any) => {
+    if (!isAdmin) {
+      changeInfo.revert();
+      return;
+    }
+
+    const { event, revert } = changeInfo;
+    const eventId = event.id;
+    const startIso = event.start ? event.start.toISOString() : event.startStr;
+    let endIso = event.end ? event.end.toISOString() : event.endStr;
+
+    if (!endIso && event.start) {
+      endIso = dayjs(event.start).add(1, 'hour').toISOString();
+    }
+
+    const isVirtualInstance = eventId.includes('_');
+    const editMode = isVirtualInstance ? 'current' : undefined;
+
+    try {
+      if (onPatchTime) {
+        await onPatchTime(eventId, startIso, endIso, editMode);
+      } else {
+        await patchScheduleTime(eventId, {
+          startTime: startIso,
+          endTime: endIso,
+          recurrenceEditMode: editMode,
+        });
+      }
+      message.success('Đã cập nhật thời gian sự kiện!');
+    } catch (err: any) {
+      revert(); // Rollback FullCalendar event position immediately on error
+      if (err.response && err.response.status === 409) {
+        message.error('Phát hiện trùng lịch trình! Sự kiện đã được khôi phục về vị trí cũ.');
+      } else if (err.response && err.response.data && err.response.data.message) {
+        message.error(`Không thể cập nhật: ${err.response.data.message}`);
+      } else {
+        message.error('Lỗi cập nhật thời gian sự kiện. Đã khôi phục vị trí cũ.');
+      }
+    }
+  };
+
   // Premium design styling for FullCalendar overrides
   const customStyles = `
     .fc {
@@ -429,15 +568,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       font-size: 13.5px !important;
     }
     .fc .fc-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 24px !important;
+      margin-bottom: 20px !important;
     }
     .fc .fc-toolbar-title {
-      font-size: 1.35rem !important;
-      font-weight: 600 !important;
-      color: #1f1f1f !important;
+      font-size: 1.25rem !important;
+      font-weight: 700 !important;
+      color: #1f2937 !important;
     }
     .fc .fc-button-primary {
       background-color: #ffffff !important;
@@ -445,10 +581,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       color: #595959 !important;
       font-weight: 500 !important;
       border-radius: 6px !important;
-      text-transform: capitalize !important;
-      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.015) !important;
-      transition: all 0.2s ease !important;
       padding: 6px 14px !important;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02) !important;
+      text-transform: capitalize !important;
+      transition: all 0.2s !important;
     }
     .fc .fc-button-primary:hover {
       color: #1890ff !important;
@@ -551,16 +687,37 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             {isAdmin ? 'Kéo chọn các khung giờ hoặc click nút "Tạo sự kiện" để sắp xếp thời gian biểu.' : 'Xem danh sách lịch trình công khai.'}
           </p>
         </div>
-        {isAdmin && (
+        <Space wrap>
           <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => handleOpenCreateModal()}
+            icon={<DownloadOutlined />}
+            onClick={handleExportIcs}
             style={{ borderRadius: '6px' }}
           >
-            Tạo sự kiện
+            Xuất file .ics
           </Button>
-        )}
+          <Button
+            icon={<FilePdfOutlined />}
+            onClick={handleExportPdf}
+            style={{ borderRadius: '6px' }}
+          >
+            Xuất PDF
+          </Button>
+          {isAdmin && (
+            <>
+              <Button onClick={() => setIsCategoryModalVisible(true)} style={{ borderRadius: '6px' }}>
+                Quản lý danh mục
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => handleOpenCreateModal()}
+                style={{ borderRadius: '6px' }}
+              >
+                Tạo sự kiện
+              </Button>
+            </>
+          )}
+        </Space>
       </div>
 
       {/* Filter Bar */}
@@ -598,9 +755,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               maxTagCount="responsive"
               allowClear
             >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <Option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {categoriesList.map((cat) => (
+                <Option key={cat._id} value={cat.name}>
+                  {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                 </Option>
               ))}
             </Select>
@@ -638,9 +795,40 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         </Space>
       </Card>
 
+      {/* Keyboard Shortcuts Hint Bar */}
+      <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 500 }}>Phím tắt:</span>
+        <Tooltip title="Nhấn N để mở tạo lịch nhanh">
+          <Tag color="blue" style={{ cursor: 'pointer' }} onClick={() => isAdmin && handleOpenCreateModal()}>
+            <kbd>N</kbd> Quick Add
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn T để về ngày hôm nay">
+          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().today()}>
+            <kbd>T</kbd> Hôm nay
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn D để chuyển sang xem theo Ngày">
+          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('timeGridDay')}>
+            <kbd>D</kbd> Ngày
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn W để chuyển sang xem theo Tuần">
+          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('timeGridWeek')}>
+            <kbd>W</kbd> Tuần
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn M để chuyển sang xem theo Tháng">
+          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('dayGridMonth')}>
+            <kbd>M</kbd> Tháng
+          </Tag>
+        </Tooltip>
+      </div>
+
       {/* FullCalendar Component */}
       <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0' }}>
         <FullCalendar
+          ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{
@@ -657,81 +845,140 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           }}
           allDaySlot={false} // clean week/day schedules without all-day rows
           firstDay={1} // Start week on Monday
-          editable={false}
+          editable={isAdmin}
+          eventStartEditable={isAdmin}
+          eventDurationEditable={isAdmin}
           selectable={isAdmin}
           selectMirror={true}
           dayMaxEvents={true}
           nowIndicator={true}
           events={events}
           eventClick={handleEventClick}
+          eventDrop={handleEventChange}
+          eventResize={handleEventChange}
           select={handleDateSelect}
           datesSet={handleDatesSet}
           height="auto"
         />
       </div>
 
-      {/* Recurrence Selection Choice Modal */}
+      {/* Recurrence Choice Confirmation Dialog */}
       <Modal
-        title="Tùy chọn Chuỗi Lặp lại"
-        visible={isRecurrenceChoiceVisible}
+        title="Tác vụ lịch trình lặp lại"
+        open={isRecurrenceChoiceVisible}
         onCancel={() => setIsRecurrenceChoiceVisible(false)}
         footer={null}
-        width={400}
         destroyOnClose
       >
-        <div style={{ textAlign: 'center', padding: '12px 0' }}>
-          <p style={{ marginBottom: '24px', fontSize: '14px', color: '#595959' }}>
-            {recurrenceActionType === 'edit'
-              ? 'Bạn muốn chỉnh sửa chỉ riêng sự kiện này hay áp dụng cho toàn bộ chuỗi sự kiện lặp lại?'
-              : 'Bạn muốn xóa chỉ riêng sự kiện này hay loại bỏ toàn bộ chuỗi sự kiện lặp lại?'}
-          </p>
-          <Space size="middle">
-            <Button
-              type="primary"
-              danger={recurrenceActionType === 'delete'}
-              onClick={() => handleRecurrenceChoiceAction('current')}
-              style={{ borderRadius: '6px' }}
-            >
-              Chỉ sự kiện này
-            </Button>
-            <Button
-              type="default"
-              onClick={() => handleRecurrenceChoiceAction('all')}
-              style={{ borderRadius: '6px' }}
-            >
-              Toàn bộ chuỗi lặp
-            </Button>
-          </Space>
+        <p style={{ marginBottom: '20px' }}>
+          Bạn muốn thực hiện tác vụ này cho sự kiện hiện tại hay tất cả sự kiện trong chuỗi lặp?
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <Button onClick={() => handleRecurrenceChoiceAction('current')}>
+            Chỉ sự kiện này
+          </Button>
+          <Button type="primary" onClick={() => handleRecurrenceChoiceAction('all')}>
+            Tất cả sự kiện lặp
+          </Button>
         </div>
       </Modal>
 
-      {/* Detail, Edit and Creation Modal */}
+      {/* Category Management Modal */}
+      <Modal
+        title="Quản lý Danh mục (Categories)"
+        open={isCategoryModalVisible}
+        onCancel={() => setIsCategoryModalVisible(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: '16px' }}>
+          <Space wrap>
+            <Input
+              placeholder="Icon (VD: 🚀, 📚)"
+              value={newCatIcon}
+              onChange={(e) => setNewCatIcon(e.target.value)}
+              style={{ width: '80px' }}
+            />
+            <Input
+              placeholder="Tên danh mục mới"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              style={{ width: '180px' }}
+            />
+            <Select value={newCatColor} onChange={setNewCatColor} style={{ width: '120px' }}>
+              {colorOptions.map((opt) => (
+                <Option key={opt.value} value={opt.value}>
+                  <span style={{ color: opt.value }}>●</span> {opt.label.split(' ')[0]}
+                </Option>
+              ))}
+            </Select>
+            <Button type="primary" onClick={handleCreateCategorySubmit}>
+              Thêm
+            </Button>
+          </Space>
+        </div>
+
+        <List
+          size="small"
+          bordered
+          dataSource={categoriesList}
+          renderItem={(cat) => (
+            <List.Item
+              actions={
+                !cat.isSystem
+                  ? [
+                      <Button
+                        type="link"
+                        danger
+                        size="small"
+                        onClick={() => handleDeleteCategorySubmit(cat._id)}
+                      >
+                        Xóa
+                      </Button>,
+                    ]
+                  : [<Tag color="default">Hệ thống</Tag>]
+              }
+            >
+              <Space>
+                <span>{cat.icon || '📌'}</span>
+                <span
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: cat.color,
+                    display: 'inline-block',
+                  }}
+                />
+                <span>{cat.name}</span>
+              </Space>
+            </List.Item>
+          )}
+        />
+      </Modal>
+
+      {/* Event View/Create/Edit Modal */}
       <Modal
         title={
-          modalMode === 'view' ? (
-            <span>
-              <InfoCircleOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
-              Chi tiết lịch trình
-            </span>
-          ) : modalMode === 'create' ? (
-            'Tạo sự kiện mới'
-          ) : (
-            'Chỉnh sửa lịch trình'
-          )
+          modalMode === 'view'
+            ? 'Chi tiết lịch trình'
+            : modalMode === 'create'
+            ? 'Tạo lịch trình mới'
+            : 'Chỉnh sửa lịch trình'
         }
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
         destroyOnClose
-        width={520}
+        width={560}
       >
         {modalMode === 'view' && selectedEvent && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <span
                 style={{
-                  width: '14px',
-                  height: '14px',
+                  width: '12px',
+                  height: '12px',
                   borderRadius: '50%',
                   backgroundColor: selectedEvent.color,
                   display: 'inline-block',
@@ -740,27 +987,39 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{selectedEvent.title}</h3>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+            <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '8px 0', color: '#8c8c8c', width: '120px' }}>Thời gian:</td>
+                  <td style={{ width: '120px', padding: '8px 0', color: '#8c8c8c' }}>Thời gian:</td>
                   <td style={{ padding: '8px 0', fontWeight: 500 }}>
                     {dayjs(selectedEvent.startTime).format('HH:mm DD/MM/YYYY')} -{' '}
                     {dayjs(selectedEvent.endTime).format('HH:mm DD/MM/YYYY')}
                   </td>
                 </tr>
-                <tr>
-                  <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Mô tả:</td>
-                  <td style={{ padding: '8px 0', whiteSpace: 'pre-wrap' }}>
-                    {selectedEvent.description || <span style={{ color: '#bfbfbf', fontStyle: 'italic' }}>Không có mô tả</span>}
-                  </td>
-                </tr>
+                {selectedEvent.description && (
+                  <tr>
+                    <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Ghi chú:</td>
+                    <td style={{ padding: '8px 0' }}>{selectedEvent.description}</td>
+                  </tr>
+                )}
                 <tr>
                   <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Danh mục:</td>
                   <td style={{ padding: '8px 0', fontWeight: 500 }}>
                     {selectedEvent.category || 'Học tập'}
                   </td>
                 </tr>
+                {selectedEvent.tags && selectedEvent.tags.length > 0 && (
+                  <tr>
+                    <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Thẻ (Tags):</td>
+                    <td style={{ padding: '8px 0' }}>
+                      {selectedEvent.tags.map((t) => (
+                        <Tag key={t} color="blue" style={{ borderRadius: '4px' }}>
+                          {t.startsWith('#') ? t : `#${t}`}
+                        </Tag>
+                      ))}
+                    </td>
+                  </tr>
+                )}
                 <tr>
                   <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Độ ưu tiên:</td>
                   <td style={{ padding: '8px 0' }}>
@@ -840,16 +1099,49 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
             <Form.Item
               name="category"
-              label="Danh mục"
+              label={
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                  <span>Danh mục</span>
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => setIsCategoryModalVisible(true)}
+                    style={{ padding: 0 }}
+                  >
+                    + Quản lý danh mục
+                  </Button>
+                </div>
+              }
               rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
             >
               <Select placeholder="Chọn danh mục sự kiện">
-                {CATEGORY_OPTIONS.map((opt) => (
-                  <Option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {categoriesList.map((cat) => (
+                  <Option key={cat._id} value={cat.name}>
+                    <Space>
+                      <span>{cat.icon || '📌'}</span>
+                      <span
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: cat.color,
+                          display: 'inline-block',
+                        }}
+                      />
+                      {cat.name}
+                    </Space>
                   </Option>
                 ))}
               </Select>
+            </Form.Item>
+
+            <Form.Item name="tags" label="Thẻ đánh dấu (Tags)">
+              <Select
+                mode="tags"
+                placeholder="Nhập thẻ đánh dấu và bấm Enter (ví dụ: #deadline, #exam)..."
+                style={{ width: '100%' }}
+                tokenSeparators={[',', ' ']}
+              />
             </Form.Item>
 
             <Form.Item
@@ -872,12 +1164,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
             <Form.Item
               name="range"
-              label="Thời gian bắt đầu & kết thúc"
-              rules={[{ required: true, message: 'Vui lòng chọn thời gian bắt đầu và kết thúc!' }]}
+              label="Khung thời gian (Bắt đầu - Kết thúc)"
+              rules={[{ required: true, message: 'Vui lòng chọn thời gian!' }]}
             >
               <DatePicker.RangePicker
                 showTime={{ format: 'HH:mm' }}
-                format="YYYY-MM-DD HH:mm"
+                format="HH:mm YYYY-MM-DD"
                 style={{ width: '100%' }}
                 placeholder={['Bắt đầu', 'Kết thúc']}
               />
