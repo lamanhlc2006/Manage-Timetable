@@ -2,6 +2,7 @@ import { Response } from 'express';
 import ical, { ICalCalendarMethod } from 'ical-generator';
 import { Schedule } from '../models/Schedule';
 import { Notification } from '../models/Notification';
+import { User } from '../models/User';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { expandRecurringEvents } from '../config/recurrenceHelper';
 
@@ -108,6 +109,21 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
     });
 
     const populatedSchedule = await Schedule.findById(newSchedule._id).populate('createdBy', 'username email role');
+
+    // Auto-create notifications for other active users when an Admin creates a schedule
+    if (req.user && req.user.role === 'admin') {
+      const otherUsers = await User.find({ _id: { $ne: req.user._id }, isActive: true }).select('_id');
+      if (otherUsers.length > 0) {
+        const notifications = otherUsers.map((u) => ({
+          recipient: u._id,
+          type: 'update',
+          title: 'Lịch trình mới được khởi tạo',
+          message: `Quản trị viên đã tạo lịch trình mới: "${newSchedule.title}".`,
+          relatedSchedule: newSchedule._id,
+        }));
+        await Notification.insertMany(notifications);
+      }
+    }
 
     res.status(201).json(populatedSchedule);
   } catch (error: any) {
@@ -224,18 +240,33 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       { new: true, runValidators: true }
     ).populate('createdBy', 'username email role');
 
-    // Send notification if admin updates schedule belonging to another user
+    // Send notification if admin updates schedule belonging to another user or system schedule
     const targetUserId = (schedule.createdBy as any)._id
       ? (schedule.createdBy as any)._id.toString()
       : schedule.createdBy.toString();
 
-    if (req.user && targetUserId !== req.user._id.toString()) {
-      await Notification.create({
-        recipient: targetUserId,
-        type: 'update',
-        title: 'Lịch trình đã được thay đổi',
-        message: `Lịch trình "${schedule.title}" của bạn đã được quản trị viên cập nhật.`,
-      });
+    if (req.user) {
+      if (targetUserId !== req.user._id.toString()) {
+        await Notification.create({
+          recipient: targetUserId,
+          type: 'update',
+          title: 'Lịch trình đã được thay đổi',
+          message: `Lịch trình "${schedule.title}" của bạn đã được quản trị viên cập nhật.`,
+          relatedSchedule: targetId,
+        });
+      } else if (req.user.role === 'admin') {
+        const otherUsers = await User.find({ _id: { $ne: req.user._id }, isActive: true }).select('_id');
+        if (otherUsers.length > 0) {
+          const notifications = otherUsers.map((u) => ({
+            recipient: u._id,
+            type: 'update',
+            title: 'Lịch trình đã được cập nhật',
+            message: `Quản trị viên đã cập nhật lịch trình: "${schedule.title}".`,
+            relatedSchedule: targetId,
+          }));
+          await Notification.insertMany(notifications);
+        }
+      }
     }
 
     res.json(updatedSchedule);
@@ -286,18 +317,31 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Send notification if admin deletes schedule belonging to another user
+    // Send notification if admin deletes schedule belonging to another user or system schedule
     const targetUserId = (schedule.createdBy as any)._id
       ? (schedule.createdBy as any)._id.toString()
       : schedule.createdBy.toString();
 
-    if (req.user && targetUserId !== req.user._id.toString()) {
-      await Notification.create({
-        recipient: targetUserId,
-        type: 'update',
-        title: 'Lịch trình đã bị xóa',
-        message: `Lịch trình "${schedule.title}" của bạn đã bị quản trị viên xóa.`,
-      });
+    if (req.user) {
+      if (targetUserId !== req.user._id.toString()) {
+        await Notification.create({
+          recipient: targetUserId,
+          type: 'update',
+          title: 'Lịch trình đã bị xóa',
+          message: `Lịch trình "${schedule.title}" của bạn đã bị quản trị viên xóa.`,
+        });
+      } else if (req.user.role === 'admin') {
+        const otherUsers = await User.find({ _id: { $ne: req.user._id }, isActive: true }).select('_id');
+        if (otherUsers.length > 0) {
+          const notifications = otherUsers.map((u) => ({
+            recipient: u._id,
+            type: 'update',
+            title: 'Lịch trình đã bị hủy/xóa',
+            message: `Quản trị viên đã xóa lịch trình: "${schedule.title}".`,
+          }));
+          await Notification.insertMany(notifications);
+        }
+      }
     }
 
     await Schedule.findByIdAndDelete(targetId);

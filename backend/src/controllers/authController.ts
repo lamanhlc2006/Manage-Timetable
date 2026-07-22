@@ -153,3 +153,110 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
   });
   res.json({ message: 'Logged out successfully' });
 };
+
+/**
+ * @desc    Update user profile
+ * @route   PATCH /api/auth/profile
+ * @access  Private
+ */
+export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { username, email } = req.body;
+
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      return;
+    }
+
+    const cleanUsername = username ? username.trim() : '';
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+
+    if (!cleanUsername || !cleanEmail) {
+      res.status(400).json({ message: 'Vui lòng điền đầy đủ username và email.' });
+      return;
+    }
+
+    // Check if new username or email is already taken by someone else
+    if (cleanUsername !== user.username || cleanEmail !== user.email) {
+      const existingUser = await User.findOne({
+        _id: { $ne: user._id },
+        $or: [
+          { username: cleanUsername },
+          { email: cleanEmail }
+        ]
+      });
+
+      if (existingUser) {
+        res.status(400).json({ message: 'Tên tài khoản hoặc email đã tồn tại.' });
+        return;
+      }
+    }
+
+    user.username = cleanUsername;
+    user.email = cleanEmail;
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi cập nhật hồ sơ.' });
+  }
+};
+
+/**
+ * @desc    Change user password
+ * @route   PATCH /api/auth/change-password
+ * @access  Private
+ */
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ message: 'Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      return;
+    }
+
+    // Verify current password
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác.' });
+      return;
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Đổi mật khẩu thành công.' });
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đổi mật khẩu.' });
+  }
+};

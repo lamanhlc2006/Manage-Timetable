@@ -135,3 +135,55 @@ export const toggleUserStatus = async (id: string, isActive: boolean): Promise<U
   const response = await api.put<UserDetail>(`/users/${id}/status`, { isActive });
   return response.data;
 };
+
+export interface UpdateProfileInput {
+  username: string;
+  email: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+export const updateProfile = async (data: UpdateProfileInput): Promise<UserDetail> => {
+  if (isOffline()) {
+    const userString = localStorage.getItem('user');
+    if (!userString) throw new Error('Chưa đăng nhập');
+    const user = JSON.parse(userString);
+    user.username = data.username;
+    user.email = data.email;
+    localStorage.setItem('user', JSON.stringify(user));
+
+    // Also update in offline users list if matching
+    const list = getOfflineUsers();
+    const idx = list.findIndex((u) => u._id === user._id);
+    if (idx !== -1) {
+      list[idx].username = data.username;
+      list[idx].email = data.email;
+      list[idx].updatedAt = new Date().toISOString();
+      saveOfflineUsers(list);
+    }
+    return user;
+  }
+
+  const response = await api.patch<UserDetail>('/auth/profile', data);
+  // Update local storage user data
+  const userString = localStorage.getItem('user');
+  if (userString) {
+    const user = JSON.parse(userString);
+    user.username = response.data.username;
+    user.email = response.data.email;
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+  return response.data;
+};
+
+export const changePassword = async (data: ChangePasswordInput): Promise<{ message: string }> => {
+  if (isOffline()) {
+    return { message: 'Đổi mật khẩu thành công (Offline Mode)' };
+  }
+
+  const response = await api.patch<{ message: string }>('/auth/change-password', data);
+  return response.data;
+};

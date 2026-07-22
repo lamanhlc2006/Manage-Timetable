@@ -51,7 +51,9 @@ export interface INotification extends Document {
   type: 'reminder' | 'system' | 'update';
   title: string;
   message: string;
+  relatedSchedule?: Types.ObjectId | ISchedule;
   isRead: boolean;
+  readAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

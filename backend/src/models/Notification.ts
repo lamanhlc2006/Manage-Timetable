@@ -24,10 +24,19 @@ const NotificationSchema = new Schema<INotification>(
       required: [true, 'Notification message is required'],
       trim: true,
     },
+    relatedSchedule: {
+      type: Schema.Types.ObjectId,
+      ref: 'Schedule',
+      required: false,
+    },
     isRead: {
       type: Boolean,
       default: false,
       index: true,
+    },
+    readAt: {
+      type: Date,
+      required: false,
     },
   },
   {
