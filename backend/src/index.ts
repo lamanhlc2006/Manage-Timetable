@@ -19,10 +19,12 @@ const app = express();
 // Connect to Database
 connectDB();
 
+import mongoose from 'mongoose';
+
 // Middlewares
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -38,6 +40,17 @@ app.use(cors({
 }));
 app.use(express.json()); // Body parser for JSON payloads
 app.use(cookieParser());
+
+// Middleware to verify database connectivity for API routes
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    res.status(503).json({
+      message: 'Không thể kết nối đến cơ sở dữ liệu MongoDB. Vui lòng đảm bảo dịch vụ MongoDB (mongod) đang hoạt động trên máy chủ.',
+    });
+    return;
+  }
+  next();
+});
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);

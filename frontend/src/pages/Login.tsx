@@ -64,11 +64,17 @@ export const Login: React.FC = () => {
       });
 
       localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem('offlineMode', 'false');
       message.success(`Chào mừng ${response.data.username} trở lại!`);
       navigate('/dashboard');
     } catch (error: any) {
       console.error(error);
-      const msg = error.response?.data?.message || 'Đăng nhập thất bại, vui lòng kiểm tra lại thông tin.';
+      let msg = 'Đăng nhập thất bại, vui lòng kiểm tra lại thông tin.';
+      if (error.response?.data?.message) {
+        msg = error.response.data.message;
+      } else if (!error.response) {
+        msg = 'Không thể kết nối đến máy chủ backend (Port 5000). Vui lòng kiểm tra dịch vụ backend.';
+      }
       message.error(msg);
     } finally {
       setLoading(false);
@@ -86,11 +92,17 @@ export const Login: React.FC = () => {
       });
 
       localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem('offlineMode', 'false');
       message.success(`Đăng ký tài khoản ${response.data.username} thành công!`);
       navigate('/dashboard');
     } catch (error: any) {
       console.error(error);
-      const msg = error.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại.';
+      let msg = 'Đăng ký thất bại, vui lòng thử lại.';
+      if (error.response?.data?.message) {
+        msg = error.response.data.message;
+      } else if (!error.response) {
+        msg = 'Không thể kết nối đến máy chủ backend (Port 5000). Vui lòng kiểm tra dịch vụ backend.';
+      }
       message.error(msg);
     } finally {
       setLoading(false);

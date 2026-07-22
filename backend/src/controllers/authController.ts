@@ -19,17 +19,31 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
   const { username, email, password, role } = req.body;
 
   try {
+    const cleanUsername = username ? username.trim() : '';
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+
+    if (!cleanUsername || !cleanEmail || !password) {
+      res.status(400).json({ message: 'Vui lòng điền đầy đủ các thông tin bắt buộc.' });
+      return;
+    }
+
     // Check if user already exists
-    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    const userExists = await User.findOne({
+      $or: [
+        { email: cleanEmail },
+        { username: cleanUsername },
+      ],
+    });
+
     if (userExists) {
-      res.status(400).json({ message: 'User or email already exists' });
+      res.status(400).json({ message: 'Tên tài khoản hoặc email đã được đăng ký.' });
       return;
     }
 
     // Create new user
     const user = await User.create({
-      username,
-      email,
+      username: cleanUsername,
+      email: cleanEmail,
       password,
       role: role || 'user', // Default to 'user' if not specified
     });
@@ -40,20 +54,21 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
       res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
+        token,
       });
     } else {
-      res.status(400).json({ message: 'Invalid user data' });
+      res.status(400).json({ message: 'Dữ liệu người dùng không hợp lệ.' });
     }
   } catch (error: any) {
     console.error('Register error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đăng ký.' });
   }
 };
 
@@ -66,8 +81,10 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   try {
+    const cleanEmail = email ? email.toLowerCase().trim() : '';
+
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: cleanEmail });
 
     // Validate password and generate token
     if (user && (await user.matchPassword(password))) {
@@ -80,20 +97,21 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
       res.json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
+        token,
       });
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      res.status(401).json({ message: 'Email hoặc mật khẩu không chính xác.' });
     }
   } catch (error: any) {
     console.error('Login error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đăng nhập.' });
   }
 };
 
