@@ -18,7 +18,13 @@ import {
   SettingOutlined,
   SunOutlined,
   MoonOutlined,
+  DisconnectOutlined,
+  FireOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { PomodoroModal } from './PomodoroModal';
+import { LanguageSelector } from './LanguageSelector';
+import { requestNotificationPermission } from '../utils/pwaHelper';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -40,6 +46,7 @@ const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
 export const CommonLayout: React.FC = () => {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -47,6 +54,12 @@ export const CommonLayout: React.FC = () => {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [pomodoroOpen, setPomodoroOpen] = useState<boolean>(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
 
   // Responsive breakpoints handler (< 768px: Mobile bottom bar, 768-1024px: Auto-collapse sidebar)
   useEffect(() => {
@@ -59,8 +72,23 @@ export const CommonLayout: React.FC = () => {
     };
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
+
+  const handleTogglePushNotifications = async () => {
+    const permission = await requestNotificationPermission();
+    setPushPermission(permission);
+  };
 
   // Retrieve user data from localStorage safely with useMemo
   const userString = localStorage.getItem('user');
@@ -302,19 +330,19 @@ export const CommonLayout: React.FC = () => {
       {
         key: 'dashboard',
         icon: <CalendarOutlined />,
-        label: 'Thời gian biểu',
+        label: t('nav.timetable'),
         onClick: () => navigate('/dashboard'),
       },
       {
         key: 'analytics',
         icon: <BarChartOutlined />,
-        label: 'Thống kê báo cáo',
+        label: t('nav.analytics'),
         onClick: () => navigate('/analytics'),
       },
       {
         key: 'settings',
         icon: <SettingOutlined />,
-        label: 'Cài đặt',
+        label: t('nav.settings'),
         onClick: () => navigate('/settings'),
       },
     ];
@@ -324,20 +352,20 @@ export const CommonLayout: React.FC = () => {
         {
           key: 'create-schedule',
           icon: <PlusCircleOutlined />,
-          label: 'Tạo lịch trình',
+          label: t('nav.createSchedule'),
           onClick: () => navigate('/create-schedule'),
         },
         {
           key: 'users',
           icon: <UserOutlined />,
-          label: 'Quản lý người dùng',
+          label: t('nav.userManagement'),
           onClick: () => navigate('/users'),
         }
       );
     }
 
     return items;
-  }, [user, navigate]);
+  }, [user, navigate, t]);
 
   return (
     <Layout style={{ minHeight: '100vh', background: theme === 'dark' ? '#141414' : '#f4f6fc' }}>
@@ -417,9 +445,41 @@ export const CommonLayout: React.FC = () => {
             />
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
+            {/* Network Offline Status Tag */}
+            {!isOnline && (
+              <Tag color="warning" icon={<DisconnectOutlined />} style={{ margin: 0 }}>
+                {isMobile ? 'Offline' : 'Đang ngoại tuyến'}
+              </Tag>
+            )}
+
+            {/* Web Push Notification Toggle Button */}
+            <Tooltip title={pushPermission === 'granted' ? 'Thông báo trình duyệt (Web Push) đã bật' : 'Cho phép Thông báo trình duyệt (Web Push)'}>
+              <Button
+                type="text"
+                shape="circle"
+                onClick={handleTogglePushNotifications}
+                icon={<BellOutlined style={{ fontSize: '18px', color: pushPermission === 'granted' ? '#52c41a' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555') }} />}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              />
+            </Tooltip>
+
+            {/* Language Selector */}
+            <LanguageSelector size="small" />
+
+            {/* Pomodoro Focus Timer Button */}
+            <Tooltip title={t('nav.focusMode')}>
+              <Button
+                type="text"
+                shape="circle"
+                onClick={() => setPomodoroOpen(true)}
+                icon={<FireOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              />
+            </Tooltip>
+
             {/* Theme Toggle Button */}
-            <Tooltip title={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}>
+            <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}>
               <Button
                 type="text"
                 shape="circle"
@@ -463,10 +523,10 @@ export const CommonLayout: React.FC = () => {
             </div>
 
             <Popconfirm
-              title="Bạn có chắc chắn muốn đăng xuất không?"
+              title={t('nav.logoutConfirm')}
               onConfirm={handleLogout}
-              okText="Đăng xuất"
-              cancelText="Hủy"
+              okText={t('nav.logout')}
+              cancelText={t('common.cancel')}
               placement="bottomRight"
             >
               <Button
@@ -477,7 +537,7 @@ export const CommonLayout: React.FC = () => {
                 size={isMobile ? 'small' : 'middle'}
                 style={{ borderRadius: '6px' }}
               >
-                {!isMobile && 'Đăng xuất'}
+                {!isMobile && t('nav.logout')}
               </Button>
             </Popconfirm>
           </div>
@@ -553,6 +613,12 @@ export const CommonLayout: React.FC = () => {
           </Button>
         </div>
       )}
+
+      {/* Pomodoro Focus Mode Modal */}
+      <PomodoroModal
+        open={pomodoroOpen}
+        onClose={() => setPomodoroOpen(false)}
+      />
     </Layout>
   );
 };

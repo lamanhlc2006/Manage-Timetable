@@ -91,10 +91,10 @@
 **Effort**: 🟡 Trung bình | **Impact**: Trung bình
 
 **Nội dung:**
-- [ ] Triển khai option thứ 3 khi edit recurring event: **"Sự kiện này và các sự kiện sau đó"**
-- [ ] Backend: Set `endDate` cho template gốc = ngày trước ngày sửa → Tạo template mới từ ngày sửa trở đi
-- [ ] Frontend: Thêm radio option "Sự kiện này và các sự kiện sau đó" vào modal edit recurring
-- [ ] Expose UI cho recurrence type `custom` (hiện schema hỗ trợ nhưng UI chưa có)
+- [x] Triển khai option thứ 3 khi edit recurring event: **"Sự kiện này và các sự kiện sau đó"**
+- [x] Backend: Set `endDate` cho template gốc = ngày trước ngày sửa → Tạo template mới từ ngày sửa trở đi
+- [x] Frontend: Thêm radio option "Sự kiện này và các sự kiện sau đó" vào modal edit recurring
+- [x] Expose UI cho recurrence type `custom` (hiện schema hỗ trợ nhưng UI chưa có)
 
 ---
 
@@ -103,11 +103,11 @@
 **Effort**: 🔴 Cao | **Impact**: Cao
 
 **Nội dung:**
-- [ ] Tạo Service Worker với Workbox cho caching strategies
-- [ ] Web App Manifest (icons, theme color, display: standalone)
-- [ ] Push Notification qua Web Push API — nhắc sự kiện kể cả khi đóng trình duyệt
-- [ ] Background Sync: sự kiện tạo offline → tự đồng bộ khi có mạng
-- [ ] App Shortcuts: Long-press icon → Quick actions
+- [x] Tạo Service Worker với Workbox cho caching strategies
+- [x] Web App Manifest (icons, theme color, display: standalone)
+- [x] Push Notification qua Web Push API — nhắc sự kiện kể cả khi đóng trình duyệt
+- [x] Background Sync: sự kiện tạo offline → tự đồng bộ khi có mạng
+- [x] App Shortcuts: Long-press icon → Quick actions
 
 ---
 
@@ -116,11 +116,11 @@
 **Effort**: 🟡 Trung bình | **Impact**: Trung bình
 
 **Nội dung:**
-- [ ] Timer component tích hợp vào sự kiện đang diễn ra
-- [ ] Cấu hình: Focus 25/30/45/60 phút, Break 5/10/15 phút
-- [ ] Long break mỗi 4 sessions
-- [ ] Thống kê focus time vào trang Analytics
-- [ ] Animation celebration khi hoàn thành
+- [x] Timer component tích hợp vào sự kiện đang diễn ra
+- [x] Cấu hình: Focus 25/30/45/60 phút, Break 5/10/15 phút
+- [x] Long break mỗi 4 sessions
+- [x] Thống kê focus time vào trang Analytics
+- [x] Animation celebration khi hoàn thành
 
 ---
 
@@ -129,10 +129,10 @@
 **Effort**: 🟡 Trung bình | **Impact**: Trung bình
 
 **Nội dung:**
-- [ ] Tích hợp `react-i18next` cho frontend
-- [ ] Toggle Tiếng Việt / English trên Settings hoặc Header
-- [ ] Dịch toàn bộ UI strings, menu labels, error messages, validation texts
-- [ ] Lưu language preference vào localStorage
+- [x] Tích hợp `react-i18next` cho frontend
+- [x] Toggle Tiếng Việt / English trên Settings hoặc Header
+- [x] Dịch toàn bộ UI strings, menu labels, error messages, validation texts
+- [x] Lưu language preference vào localStorage
 
 ---
 

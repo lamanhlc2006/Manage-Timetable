@@ -67,7 +67,7 @@ export const expandRecurringEvents = (
       return next;
     };
 
-    if (type === 'weekly' && daysOfWeek.length > 0) {
+    if ((type === 'weekly' || type === 'custom') && daysOfWeek.length > 0) {
       // For weekly with specific days, we loop day-by-day to find matching days
       const temp = new Date(templateStart);
       temp.setHours(0, 0, 0, 0);

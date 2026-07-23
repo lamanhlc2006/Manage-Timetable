@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, message } from 'antd';
 import {
+  fetchSchedules,
   createSchedule,
   updateSchedule,
   patchScheduleTime,
@@ -65,43 +66,33 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleUpdate = async (id: string, inputData: Partial<CreateScheduleInput> & { force?: boolean }) => {
+  const handleUpdate = async (id: string, inputData: Partial<CreateScheduleInput> & { force?: boolean; recurrenceEditMode?: 'all' | 'current' | 'future'; instanceDate?: string }) => {
     try {
-      const updatedEvent = await updateSchedule(id, inputData);
-      setSchedules((prev) =>
-        prev.map((item) => (item._id === id ? updatedEvent : item))
-      );
+      await updateSchedule(id, inputData);
+      const data = await fetchSchedules(filters);
+      setSchedules(data);
     } catch (err: any) {
       console.error(err);
       throw err;
     }
   };
 
-  const handleDelete = async (id: string, deleteMode?: 'all' | 'current') => {
+  const handleDelete = async (id: string, deleteMode?: 'all' | 'current' | 'future') => {
     try {
-      const res = await deleteSchedule(id, deleteMode);
-      const targetId = res.id;
-      setSchedules((prev) =>
-        prev.filter((item) => {
-          if (deleteMode === 'current') {
-            return item._id !== id;
-          } else {
-            return item._id !== targetId && item.parentEvent !== targetId && !item._id.startsWith(`${targetId}_`);
-          }
-        })
-      );
+      await deleteSchedule(id, deleteMode);
+      const data = await fetchSchedules(filters);
+      setSchedules(data);
     } catch (err: any) {
       console.error(err);
       throw err;
     }
   };
 
-  const handlePatchTime = async (id: string, startTime: string, endTime: string, recurrenceEditMode?: 'all' | 'current') => {
+  const handlePatchTime = async (id: string, startTime: string, endTime: string, recurrenceEditMode?: 'all' | 'current' | 'future') => {
     try {
-      const updatedEvent = await patchScheduleTime(id, { startTime, endTime, recurrenceEditMode });
-      setSchedules((prev) =>
-        prev.map((item) => (item._id === id ? updatedEvent : item))
-      );
+      await patchScheduleTime(id, { startTime, endTime, recurrenceEditMode });
+      const data = await fetchSchedules(filters);
+      setSchedules(data);
     } catch (err: any) {
       console.error(err);
       throw err;

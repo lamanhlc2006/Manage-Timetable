@@ -8,6 +8,7 @@ import scheduleRoutes from './routes/scheduleRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+import focusSessionRoutes from './routes/focusSessionRoutes';
 import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
 
 // Load environment variables
@@ -58,6 +59,7 @@ app.use('/api/schedules', scheduleLimiter, scheduleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/focus-sessions', focusSessionRoutes);
 
 // Root route for simple API check
 app.get('/', (req, res) => {

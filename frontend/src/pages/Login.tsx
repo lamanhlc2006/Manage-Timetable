@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Radio, Tabs, message, Divider } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { LanguageSelector } from '../components/LanguageSelector';
 import api from '../services/api';
 
 const { TabPane } = Tabs;
 
 export const Login: React.FC = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const navigate = useNavigate();
@@ -129,8 +132,12 @@ export const Login: React.FC = () => {
           backdropFilter: 'blur(4px)',
           border: '1px solid rgba(255, 255, 255, 0.18)',
         }}
-        bodyStyle={{ padding: '32px 24px' }}
+        bodyStyle={{ padding: '32px 24px', position: 'relative' }}
       >
+        <div style={{ position: 'absolute', top: 16, right: 16 }}>
+          <LanguageSelector size="small" />
+        </div>
+
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div
             style={{
@@ -148,9 +155,9 @@ export const Login: React.FC = () => {
             <ScheduleOutlined style={{ fontSize: '32px' }} />
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#111' }}>
-            Hệ Thống Lịch Trình
+            {t('common.appTitle')}
           </h2>
-          <p style={{ color: '#8c8c8c', margin: 0 }}>Quản lý thời gian biểu dễ dàng và trực quan</p>
+          <p style={{ color: '#8c8c8c', margin: 0 }}>TIMETABLE</p>
         </div>
 
         <Tabs
@@ -159,14 +166,14 @@ export const Login: React.FC = () => {
           centered
           style={{ marginBottom: '16px' }}
         >
-          <TabPane tab="Đăng Nhập" key="login">
+          <TabPane tab={t('auth.login')} key="login">
             <Form name="login_form" layout="vertical" onFinish={onFinishLogin} size="large">
               <Form.Item
                 name="email"
-                label="Email"
+                label={t('auth.email')}
                 rules={[
-                  { required: true, message: 'Vui lòng nhập Email!' },
-                  { type: 'email', message: 'Email không đúng định dạng!' },
+                  { required: true, message: t('auth.emailRequired') },
+                  { type: 'email', message: t('auth.emailRequired') },
                 ]}
               >
                 <Input prefix={<MailOutlined style={{ color: '#bfbfbf' }} />} placeholder="email@example.com" />
@@ -174,39 +181,39 @@ export const Login: React.FC = () => {
 
               <Form.Item
                 name="password"
-                label="Mật khẩu"
-                rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
+                label={t('auth.password')}
+                rules={[{ required: true, message: t('auth.passwordRequired') }]}
               >
                 <Input.Password
                   prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                  placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                  placeholder={t('auth.password')}
                 />
               </Form.Item>
 
               <Form.Item style={{ marginTop: '24px' }}>
                 <Button type="primary" htmlType="submit" block loading={loading} style={{ borderRadius: '6px' }}>
-                  Đăng Nhập
+                  {t('auth.login')}
                 </Button>
               </Form.Item>
             </Form>
           </TabPane>
 
-          <TabPane tab="Đăng Ký" key="register">
+          <TabPane tab={t('auth.register')} key="register">
             <Form name="register_form" layout="vertical" onFinish={onFinishRegister} size="large">
               <Form.Item
                 name="username"
-                label="Tên tài khoản"
-                rules={[{ required: true, message: 'Vui lòng nhập tên tài khoản!' }]}
+                label={t('auth.username')}
+                rules={[{ required: true, message: t('auth.usernameRequired') }]}
               >
-                <Input prefix={<UserOutlined style={{ color: '#bfbfbf' }} />} placeholder="Tên hiển thị" />
+                <Input prefix={<UserOutlined style={{ color: '#bfbfbf' }} />} placeholder={t('auth.username')} />
               </Form.Item>
 
               <Form.Item
                 name="email"
-                label="Email"
+                label={t('auth.email')}
                 rules={[
-                  { required: true, message: 'Vui lòng nhập Email!' },
-                  { type: 'email', message: 'Email không đúng định dạng!' },
+                  { required: true, message: t('auth.emailRequired') },
+                  { type: 'email', message: t('auth.emailRequired') },
                 ]}
               >
                 <Input prefix={<MailOutlined style={{ color: '#bfbfbf' }} />} placeholder="email@example.com" />
@@ -214,15 +221,15 @@ export const Login: React.FC = () => {
 
               <Form.Item
                 name="password"
-                label="Mật khẩu"
+                label={t('auth.password')}
                 rules={[
-                  { required: true, message: 'Vui lòng nhập mật khẩu!' },
-                  { min: 6, message: 'Mật khẩu phải chứa ít nhất 6 ký tự!' },
+                  { required: true, message: t('auth.passwordRequired') },
+                  { min: 6, message: t('auth.passwordRequired') },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                  placeholder="Mật khẩu"
+                  placeholder={t('auth.password')}
                 />
               </Form.Item>
 

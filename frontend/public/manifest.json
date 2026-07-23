@@ -1,0 +1,45 @@
+{
+  "name": "Timetable Management System",
+  "short_name": "Timetable",
+  "description": "Ứng dụng quản lý thời gian biểu, lịch trình học tập và làm việc cá nhân",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1890ff",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "48x48 72x72 96x96 128x128 192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tạo lịch trình mới",
+      "short_name": "Tạo lịch",
+      "description": "Tạo nhanh lịch trình mới",
+      "url": "/create",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Xem Phân Tích",
+      "short_name": "Thống kê",
+      "description": "Báo cáo thống kê thời gian biểu",
+      "url": "/analytics",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

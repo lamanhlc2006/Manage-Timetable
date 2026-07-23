@@ -1,4 +1,5 @@
 import api from './api';
+import { addOfflineAction } from './offlineSync';
 
 export interface UserRef {
   _id: string;
@@ -119,7 +120,8 @@ export const fetchSchedules = async (params?: { startTime?: string; endTime?: st
 };
 
 export const createSchedule = async (data: CreateScheduleInput & { force?: boolean }): Promise<ScheduleEvent> => {
-  if (isOffline()) {
+  if (isOffline() || !navigator.onLine) {
+    addOfflineAction({ type: 'create', payload: data });
     const userString = localStorage.getItem('user');
     const user = userString ? JSON.parse(userString) : { _id: 'mock-user', username: 'Guest', email: 'guest@example.com', role: 'user' };
     
@@ -149,8 +151,12 @@ export const createSchedule = async (data: CreateScheduleInput & { force?: boole
   return response.data;
 };
 
-export const updateSchedule = async (id: string, data: Partial<CreateScheduleInput> & { force?: boolean }): Promise<ScheduleEvent> => {
-  if (isOffline()) {
+export const updateSchedule = async (
+  id: string,
+  data: Partial<CreateScheduleInput> & { force?: boolean; recurrenceEditMode?: 'all' | 'current' | 'future'; instanceDate?: string }
+): Promise<ScheduleEvent> => {
+  if (isOffline() || !navigator.onLine) {
+    addOfflineAction({ type: 'update', scheduleId: id, payload: data });
     const schedules = getOfflineSchedules();
     const index = schedules.findIndex(item => item._id === id);
     if (index === -1) {
@@ -173,9 +179,10 @@ export const updateSchedule = async (id: string, data: Partial<CreateScheduleInp
 
 export const patchScheduleTime = async (
   id: string,
-  data: { startTime: string; endTime: string; force?: boolean; recurrenceEditMode?: 'all' | 'current' }
+  data: { startTime: string; endTime: string; force?: boolean; recurrenceEditMode?: 'all' | 'current' | 'future' }
 ): Promise<ScheduleEvent> => {
-  if (isOffline()) {
+  if (isOffline() || !navigator.onLine) {
+    addOfflineAction({ type: 'update', scheduleId: id, payload: data });
     const schedules = getOfflineSchedules();
     const index = schedules.findIndex((item) => item._id === id);
     if (index === -1) {
@@ -197,8 +204,9 @@ export const patchScheduleTime = async (
   return response.data;
 };
 
-export const deleteSchedule = async (id: string, deleteMode?: 'all' | 'current'): Promise<{ message: string; id: string }> => {
-  if (isOffline()) {
+export const deleteSchedule = async (id: string, deleteMode?: 'all' | 'current' | 'future'): Promise<{ message: string; id: string }> => {
+  if (isOffline() || !navigator.onLine) {
+    addOfflineAction({ type: 'delete', scheduleId: id });
     const schedules = getOfflineSchedules();
     const filtered = schedules.filter(item => item._id !== id);
     saveOfflineSchedules(filtered);

@@ -20,7 +20,7 @@ export const authLimiter = rateLimit({
  */
 export const scheduleLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  limit: 100,
+  limit: 500, // Raised to 500 requests/min to accommodate active UI filtering & analytics
   standardHeaders: true,
   legacyHeaders: false,
   message: {

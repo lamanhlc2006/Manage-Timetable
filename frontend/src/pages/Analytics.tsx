@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Spin, Radio, Typography, Empty } from 'antd';
+import { Card, Row, Col, Statistic, Spin, Radio, Typography, Empty, Progress, Divider } from 'antd';
 import { Column, Pie } from '@ant-design/charts';
 import {
   ClockCircleOutlined,
   CalendarOutlined,
   AppstoreOutlined,
   RiseOutlined,
+  FireOutlined,
+  CheckCircleOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { fetchSchedules, ScheduleEvent } from '../services/scheduleService';
+import { fetchFocusStats, FocusStats } from '../services/focusService';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
 
 export const Analytics: React.FC = () => {
+  const { t } = useTranslation();
   const [schedules, setSchedules] = useState<ScheduleEvent[]>([]);
+  const [focusStats, setFocusStats] = useState<FocusStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [timeFilter, setTimeFilter] = useState<'7days' | '30days' | 'all'>('30days');
 
@@ -31,8 +38,13 @@ export const Analytics: React.FC = () => {
         endTime = dayjs().endOf('day').toISOString();
       }
 
-      const data = await fetchSchedules({ startTime, endTime });
-      setSchedules(data);
+      const [schedulesData, focusData] = await Promise.all([
+        fetchSchedules({ startTime, endTime }),
+        fetchFocusStats({ startTime, endTime }),
+      ]);
+
+      setSchedules(schedulesData);
+      setFocusStats(focusData);
     } catch (err) {
       console.error('Error fetching analytics schedules:', err);
     } finally {
@@ -135,6 +147,20 @@ export const Analytics: React.FC = () => {
     interactions: [{ type: 'element-active' }],
   };
 
+  // Focus Category Pie Chart Config
+  const focusPieConfig = {
+    appendPadding: 10,
+    data: focusStats?.categoryBreakdown || [],
+    angleField: 'minutes',
+    colorField: 'category',
+    radius: 0.8,
+    label: {
+      type: 'outer',
+      content: '{name}: {percentage}',
+    },
+    interactions: [{ type: 'element-active' }],
+  };
+
   return (
     <div style={{ padding: '4px' }}>
       <div
@@ -149,9 +175,9 @@ export const Analytics: React.FC = () => {
       >
         <div>
           <Title level={3} style={{ margin: 0 }}>
-            Phân Tích & Thống Kê Thời Gian
+            {t('analytics.title')}
           </Title>
-          <Text type="secondary">Visualizing schedule distribution and time allocation</Text>
+          <Text type="secondary">{t('analytics.subtitle')}</Text>
         </div>
 
         <Radio.Group
@@ -159,28 +185,28 @@ export const Analytics: React.FC = () => {
           onChange={(e) => setTimeFilter(e.target.value)}
           buttonStyle="solid"
         >
-          <Radio.Button value="7days">7 Ngày Qua</Radio.Button>
-          <Radio.Button value="30days">30 Ngày Qua</Radio.Button>
-          <Radio.Button value="all">Tất Cả</Radio.Button>
+          <Radio.Button value="7days">{t('analytics.7days')}</Radio.Button>
+          <Radio.Button value="30days">{t('analytics.30days')}</Radio.Button>
+          <Radio.Button value="all">{t('analytics.all')}</Radio.Button>
         </Radio.Group>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px' }}>
-          <Spin size="large" tip="Đang tải dữ liệu phân tích...">
+          <Spin size="large" tip={t('common.loading')}>
             <div style={{ minHeight: 120 }} />
           </Spin>
         </div>
       ) : (
         <>
-          {/* Summary KPI Cards */}
+          {/* Schedule Summary KPI Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#e6f7ff', borderRadius: '10px' }}>
                 <Statistic
-                  title="Tổng số giờ"
+                  title={t('analytics.totalScheduleHours')}
                   value={stats.totalHours}
-                  suffix="giờ"
+                  suffix="h"
                   prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
                   valueStyle={{ color: '#1890ff', fontWeight: 'bold' }}
                 />
@@ -189,9 +215,8 @@ export const Analytics: React.FC = () => {
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#f6ffed', borderRadius: '10px' }}>
                 <Statistic
-                  title="Tổng sự kiện"
+                  title={t('analytics.totalEvents')}
                   value={stats.totalCount}
-                  suffix="mục"
                   prefix={<CalendarOutlined style={{ color: '#52c41a' }} />}
                   valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
                 />
@@ -200,7 +225,7 @@ export const Analytics: React.FC = () => {
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#fff7e6', borderRadius: '10px' }}>
                 <Statistic
-                  title="Danh mục lớn nhất"
+                  title={t('analytics.topCategory')}
                   value={stats.topCategory}
                   prefix={<AppstoreOutlined style={{ color: '#fa8c16' }} />}
                   valueStyle={{ color: '#fa8c16', fontWeight: 'bold', fontSize: '20px' }}
@@ -210,9 +235,9 @@ export const Analytics: React.FC = () => {
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#f9f0ff', borderRadius: '10px' }}>
                 <Statistic
-                  title="Trung bình/ngày"
+                  title={t('analytics.dailyAverage')}
                   value={Number((stats.totalHours / (timeFilter === '7days' ? 7 : 30)).toFixed(1))}
-                  suffix="h/ngày"
+                  suffix="h/d"
                   prefix={<RiseOutlined style={{ color: '#722ed1' }} />}
                   valueStyle={{ color: '#722ed1', fontWeight: 'bold' }}
                 />
@@ -220,18 +245,18 @@ export const Analytics: React.FC = () => {
             </Col>
           </Row>
 
-          {/* Charts Row */}
-          <Row gutter={[16, 16]}>
+          {/* Schedule Charts Row */}
+          <Row gutter={[16, 16]} style={{ marginBottom: '32px' }}>
             <Col xs={24} lg={12}>
               <Card
-                title="Số Giờ Học & Làm Theo Tuần (Theo Thứ)"
+                title={t('analytics.weeklyDistribution')}
                 variant="borderless"
                 style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               >
                 {stats.totalCount === 0 ? (
-                  <Empty description="Không có dữ liệu trong khoảng thời gian này" />
+                  <Empty description={t('analytics.noData')} />
                 ) : (
-                  <div style={{ height: 320 }}>
+                  <div style={{ height: 300 }}>
                     <Column {...(columnConfig as any)} />
                   </div>
                 )}
@@ -240,15 +265,109 @@ export const Analytics: React.FC = () => {
 
             <Col xs={24} lg={12}>
               <Card
-                title="Tỷ Lệ Thời Gian Phân Bổ Theo Danh Mục"
+                title={t('analytics.categoryDistribution')}
                 variant="borderless"
                 style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               >
                 {stats.totalCount === 0 ? (
-                  <Empty description="Không có dữ liệu trong khoảng thời gian này" />
+                  <Empty description={t('analytics.noData')} />
                 ) : (
-                  <div style={{ height: 320 }}>
+                  <div style={{ height: 300 }}>
                     <Pie {...(pieConfig as any)} />
+                  </div>
+                )}
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Pomodoro Focus Analytics Section */}
+          <Divider orientation="left" style={{ margin: '24px 0 16px 0' }}>
+            <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ff4d4f' }}>
+              <FireOutlined /> {t('analytics.pomodoroTitle')}
+            </Title>
+          </Divider>
+
+          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+            <Col xs={24} sm={8}>
+              <Card variant="borderless" style={{ background: '#fff2e8', borderRadius: '10px', border: '1px solid #ffbb96' }}>
+                <Statistic
+                  title={t('analytics.totalFocusTime')}
+                  value={focusStats?.totalFocusHours || 0}
+                  suffix="h"
+                  prefix={<FireOutlined style={{ color: '#ff4d4f' }} />}
+                  valueStyle={{ color: '#ff4d4f', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card variant="borderless" style={{ background: '#f6ffed', borderRadius: '10px', border: '1px solid #b7eb8f' }}>
+                <Statistic
+                  title={t('analytics.completedSessions')}
+                  value={focusStats?.totalSessions || 0}
+                  prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                  valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card variant="borderless" style={{ background: '#fff7e6', borderRadius: '10px', border: '1px solid #ffd591' }}>
+                <Statistic
+                  title={t('analytics.avgSessionLength')}
+                  value={
+                    focusStats && focusStats.totalSessions > 0
+                      ? Math.round(focusStats.totalFocusMinutes / focusStats.totalSessions)
+                      : 0
+                  }
+                  suffix="m"
+                  prefix={<TrophyOutlined style={{ color: '#fa8c16' }} />}
+                  valueStyle={{ color: '#fa8c16', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card
+                title={t('analytics.focusCategoryDistribution')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+              >
+                {!focusStats || focusStats.categoryBreakdown.length === 0 ? (
+                  <Empty description={t('analytics.noFocusData')} />
+                ) : (
+                  <div style={{ height: 280 }}>
+                    <Pie {...(focusPieConfig as any)} />
+                  </div>
+                )}
+              </Card>
+            </Col>
+
+            <Col xs={24} lg={12}>
+              <Card
+                title={t('analytics.focusDetailTable')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+              >
+                {!focusStats || focusStats.categoryBreakdown.length === 0 ? (
+                  <Empty description={t('analytics.noFocusData')} />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                    {focusStats.categoryBreakdown.map((item) => {
+                      const totalMin = focusStats.totalFocusMinutes || 1;
+                      const pct = Math.round((item.minutes / totalMin) * 100);
+                      return (
+                        <div key={item.category}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <Text strong>{item.category}</Text>
+                            <Text type="secondary">
+                              {item.minutes}m ({item.hours}h)
+                            </Text>
+                          </div>
+                          <Progress percent={pct} strokeColor="#ff4d4f" status="active" />
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </Card>

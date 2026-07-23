@@ -27,8 +27,10 @@ import {
   resetPassword,
   UserDetail,
 } from '../services/userService';
+import { useTranslation } from 'react-i18next';
 
 export const UserManagement: React.FC = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserDetail[]>([]);
   const [total, setTotal] = useState(0);
@@ -152,7 +154,7 @@ export const UserManagement: React.FC = () => {
   // Ant Design Table Columns configuration
   const columns = [
     {
-      title: 'Tên người dùng',
+      title: t('userMgmt.columnUsername'),
       dataIndex: 'username',
       key: 'username',
       render: (text: string, record: UserDetail) => (
@@ -174,18 +176,18 @@ export const UserManagement: React.FC = () => {
           </div>
           <span style={{ fontWeight: 500 }}>{text}</span>
           {record._id === currentUserId && (
-            <Tag color="cyan" style={{ marginLeft: 4 }}>Bạn</Tag>
+            <Tag color="cyan" style={{ marginLeft: 4 }}>You</Tag>
           )}
         </Space>
       ),
     },
     {
-      title: 'Email',
+      title: t('userMgmt.columnEmail'),
       dataIndex: 'email',
       key: 'email',
     },
     {
-      title: 'Vai trò',
+      title: t('userMgmt.columnRole'),
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => (
@@ -195,7 +197,7 @@ export const UserManagement: React.FC = () => {
       ),
     },
     {
-      title: 'Trạng thái',
+      title: t('common.status'),
       dataIndex: 'isActive',
       key: 'isActive',
       render: (isActive: boolean) => (
@@ -203,14 +205,14 @@ export const UserManagement: React.FC = () => {
           status={isActive ? 'success' : 'error'}
           text={
             <span style={{ fontWeight: 500, color: isActive ? '#52c41a' : '#f5222d' }}>
-              {isActive ? 'Hoạt động' : 'Đã khóa'}
+              {isActive ? 'Active' : 'Locked'}
             </span>
           }
         />
       ),
     },
     {
-      title: 'Số sự kiện',
+      title: t('userMgmt.columnEvents'),
       dataIndex: 'scheduleCount',
       key: 'scheduleCount',
       align: 'center' as const,
@@ -221,19 +223,19 @@ export const UserManagement: React.FC = () => {
       ),
     },
     {
-      title: 'Đăng nhập gần nhất',
+      title: t('userMgmt.columnLastLogin'),
       dataIndex: 'lastLoginAt',
       key: 'lastLoginAt',
-      render: (date?: string) => (date ? dayjs(date).format('HH:mm DD/MM/YYYY') : <span style={{ color: '#bfbfbf', fontStyle: 'italic' }}>Chưa đăng nhập</span>),
+      render: (date?: string) => (date ? dayjs(date).format('HH:mm DD/MM/YYYY') : <span style={{ color: '#bfbfbf', fontStyle: 'italic' }}>-</span>),
     },
     {
-      title: 'Ngày tạo',
+      title: t('userMgmt.columnCreatedAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (date: string) => dayjs(date).format('HH:mm DD/MM/YYYY'),
     },
     {
-      title: 'Thao tác',
+      title: t('userMgmt.columnAction'),
       key: 'actions',
       render: (_: any, record: UserDetail) => {
         const isSelf = record._id === currentUserId;

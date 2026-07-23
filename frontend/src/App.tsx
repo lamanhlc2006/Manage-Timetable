@@ -1,6 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme as antTheme } from 'antd';
+import vi_VN from 'antd/locale/vi_VN';
+import en_US from 'antd/locale/en_US';
+import { useTranslation } from 'react-i18next';
+import './i18n';
+
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { CreateSchedule } from './pages/CreateSchedule';
@@ -39,9 +44,12 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
+  const { i18n } = useTranslation();
+  const currentLang = i18n.language || 'vi';
 
   return (
     <ConfigProvider
+      locale={currentLang.startsWith('en') ? en_US : vi_VN}
       theme={{
         algorithm: theme === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
       }}

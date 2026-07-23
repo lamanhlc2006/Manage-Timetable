@@ -223,6 +223,47 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    if (recurrenceEditMode === 'future') {
+      const occurrenceDate = isVirtualInstance && instanceTimestamp > 0
+        ? new Date(instanceTimestamp)
+        : new Date(start);
+
+      const dayBefore = new Date(occurrenceDate.getTime() - 1000);
+      if (!schedule.recurrence) {
+        schedule.recurrence = { type: 'none', interval: 1 };
+      }
+      schedule.recurrence.endDate = dayBefore;
+      await schedule.save();
+
+      await Schedule.deleteMany({
+        parentEvent: targetId,
+        startTime: { $gte: occurrenceDate },
+      });
+
+      const newRecurrence = recurrence || {
+        type: schedule.recurrence.type,
+        interval: schedule.recurrence.interval || 1,
+        daysOfWeek: schedule.recurrence.daysOfWeek,
+      };
+
+      const newSchedule = await Schedule.create({
+        title: title !== undefined ? title : schedule.title,
+        description: description !== undefined ? description : schedule.description,
+        startTime: start,
+        endTime: end,
+        color: color !== undefined ? color : schedule.color,
+        category: category !== undefined ? category : schedule.category,
+        tags: tags !== undefined ? tags : schedule.tags,
+        priority: priority !== undefined ? priority : schedule.priority,
+        recurrence: newRecurrence,
+        createdBy: req.user?._id || schedule.createdBy,
+      });
+
+      const populated = await Schedule.findById(newSchedule._id).populate('createdBy', 'username email role');
+      res.json(populated);
+      return;
+    }
+
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
@@ -314,6 +355,27 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
       await schedule.save();
 
       res.json({ message: 'Lịch trình ảo đã được loại bỏ thành công', id });
+      return;
+    }
+
+    if (deleteMode === 'future' && (instanceTimestamp > 0 || req.query.instanceDate)) {
+      const occurrenceDate = instanceTimestamp > 0
+        ? new Date(instanceTimestamp)
+        : new Date(req.query.instanceDate as string);
+
+      const dayBefore = new Date(occurrenceDate.getTime() - 1000);
+      if (!schedule.recurrence) {
+        schedule.recurrence = { type: 'none', interval: 1 };
+      }
+      schedule.recurrence.endDate = dayBefore;
+      await schedule.save();
+
+      await Schedule.deleteMany({
+        parentEvent: targetId,
+        startTime: { $gte: occurrenceDate },
+      });
+
+      res.json({ message: 'Sự kiện này và các sự kiện sau đó đã được xóa thành công', id: targetId });
       return;
     }
 

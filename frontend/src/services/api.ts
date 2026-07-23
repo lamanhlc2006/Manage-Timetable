@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { message } from 'antd';
 
 axios.defaults.withCredentials = true;
 
@@ -31,7 +32,8 @@ api.interceptors.request.use(
 
 let isRedirecting = false;
 
-// Response interceptor to gracefully catch 401 Unauthorized errors
+// Response interceptor to gracefully catch 401 & 429 errors
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -47,6 +49,8 @@ api.interceptors.response.use(
           isRedirecting = false;
         }, 3000);
       }
+    } else if (error.response && error.response.status === 429) {
+      message.warning(error.response.data?.message || 'Quá nhiều yêu cầu đến hệ thống. Vui lòng chờ giây lát!');
     }
     return Promise.reject(error);
   }
