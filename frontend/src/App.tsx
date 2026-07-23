@@ -46,7 +46,12 @@ const AppContent: React.FC = () => {
         algorithm: theme === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
       }}
     >
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Routes>
           {/* Public Authentication Route */}
           <Route path="/login" element={<Login />} />

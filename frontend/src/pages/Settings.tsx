@@ -400,7 +400,7 @@ export const Settings: React.FC = () => {
       </div>
 
       <Card
-        bordered={false}
+        variant="borderless"
         style={{
           borderRadius: '12px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
@@ -415,7 +415,7 @@ export const Settings: React.FC = () => {
         open={isCatModalVisible}
         onCancel={() => setIsCatModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={400}
       >
         <Form

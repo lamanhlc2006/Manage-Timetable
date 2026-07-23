@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Layout, Menu, Button, Avatar, Tag, Popconfirm, Badge, Popover, List, Typography, Empty, Spin, Tooltip } from 'antd';
 import {
   CalendarOutlined,
@@ -47,37 +47,43 @@ export const CommonLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Retrieve user data from localStorage safely
+  // Retrieve user data from localStorage safely with useMemo
   const userString = localStorage.getItem('user');
-  let user: any = null;
-  if (userString) {
+  const user = useMemo(() => {
+    if (!userString) return null;
     try {
-      user = JSON.parse(userString);
+      return JSON.parse(userString);
     } catch (e) {
       console.error('Error parsing user from localStorage', e);
       localStorage.removeItem('user'); // Clear corrupted user state
+      return null;
     }
-  }
+  }, [userString]);
+
+  const userId = user?._id || user?.id;
 
   const loadNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     try {
       setLoadingNotifs(true);
       const data = await fetchNotifications();
       setNotifications(data);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
+    } catch (err: any) {
+      if (err?.response?.status !== 401) {
+        console.error('Error fetching notifications:', err);
+      }
     } finally {
       setLoadingNotifs(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     loadNotifications();
     // Periodically poll for new notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
-  }, [loadNotifications]);
+  }, [loadNotifications, userId]);
 
   const handleMarkRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -276,6 +282,48 @@ export const CommonLayout: React.FC = () => {
     </div>
   );
 
+  const menuItems = useMemo(() => {
+    const items = [
+      {
+        key: 'dashboard',
+        icon: <CalendarOutlined />,
+        label: 'Thời gian biểu',
+        onClick: () => navigate('/dashboard'),
+      },
+      {
+        key: 'analytics',
+        icon: <BarChartOutlined />,
+        label: 'Thống kê báo cáo',
+        onClick: () => navigate('/analytics'),
+      },
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: 'Cài đặt',
+        onClick: () => navigate('/settings'),
+      },
+    ];
+
+    if (user && user.role === 'admin') {
+      items.push(
+        {
+          key: 'create-schedule',
+          icon: <PlusCircleOutlined />,
+          label: 'Tạo lịch trình',
+          onClick: () => navigate('/create-schedule'),
+        },
+        {
+          key: 'users',
+          icon: <UserOutlined />,
+          label: 'Quản lý người dùng',
+          onClick: () => navigate('/users'),
+        }
+      );
+    }
+
+    return items;
+  }, [user, navigate]);
+
   return (
     <Layout style={{ minHeight: '100vh', background: theme === 'dark' ? '#141414' : '#f4f6fc' }}>
       <Sider
@@ -310,48 +358,9 @@ export const CommonLayout: React.FC = () => {
           mode="inline"
           theme={theme}
           selectedKeys={getActiveKey()}
+          items={menuItems}
           style={{ borderRight: 0, marginTop: '16px' }}
-        >
-          <Menu.Item
-            key="dashboard"
-            icon={<CalendarOutlined />}
-            onClick={() => navigate('/dashboard')}
-          >
-            Thời gian biểu
-          </Menu.Item>
-          <Menu.Item
-            key="analytics"
-            icon={<BarChartOutlined />}
-            onClick={() => navigate('/analytics')}
-          >
-            Thống kê báo cáo
-          </Menu.Item>
-          <Menu.Item
-            key="settings"
-            icon={<SettingOutlined />}
-            onClick={() => navigate('/settings')}
-          >
-            Cài đặt
-          </Menu.Item>
-          {user && user.role === 'admin' && (
-            <>
-              <Menu.Item
-                key="create-schedule"
-                icon={<PlusCircleOutlined />}
-                onClick={() => navigate('/create-schedule')}
-              >
-                Tạo lịch trình
-              </Menu.Item>
-              <Menu.Item
-                key="users"
-                icon={<UserOutlined />}
-                onClick={() => navigate('/users')}
-              >
-                Quản lý người dùng
-              </Menu.Item>
-            </>
-          )}
-        </Menu>
+        />
       </Sider>
       <Layout>
         <Header

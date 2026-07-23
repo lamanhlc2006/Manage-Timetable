@@ -110,7 +110,7 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+      <Card variant="borderless" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
         <Spin spinning={loading} tip="Đang tải dữ liệu lịch trình...">
           <ScheduleCalendar
             schedules={schedules}

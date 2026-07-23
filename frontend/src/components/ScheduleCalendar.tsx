@@ -1072,7 +1072,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         open={isRecurrenceChoiceVisible}
         onCancel={() => setIsRecurrenceChoiceVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ marginBottom: '20px' }}>
           Bạn muốn thực hiện tác vụ này cho sự kiện hiện tại hay tất cả sự kiện trong chuỗi lặp?
@@ -1096,7 +1096,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           handleCancelEditCategory();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ marginBottom: '20px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f0f0f0' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#595959' }}>
@@ -1198,7 +1198,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={560}
       >
         {modalMode === 'view' && selectedEvent && (
@@ -1509,7 +1509,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         open={isQuickAddModalVisible}
         onCancel={() => setIsQuickAddModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={420}
       >
         <Form
@@ -1564,7 +1564,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         open={isHelpModalVisible}
         onCancel={() => setIsHelpModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={460}
       >
         <div style={{ marginTop: '16px' }}>

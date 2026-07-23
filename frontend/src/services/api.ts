@@ -29,4 +29,27 @@ api.interceptors.request.use(
   }
 );
 
+let isRedirecting = false;
+
+// Response interceptor to gracefully catch 401 Unauthorized errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      if (!isRedirecting) {
+        isRedirecting = true;
+        localStorage.removeItem('user');
+        localStorage.removeItem('offlineMode');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        setTimeout(() => {
+          isRedirecting = false;
+        }, 3000);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -167,14 +167,16 @@ export const Analytics: React.FC = () => {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px' }}>
-          <Spin size="large" tip="Đang tải dữ liệu phân tích..." />
+          <Spin size="large" tip="Đang tải dữ liệu phân tích...">
+            <div style={{ minHeight: 120 }} />
+          </Spin>
         </div>
       ) : (
         <>
           {/* Summary KPI Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
             <Col xs={24} sm={12} md={6}>
-              <Card bordered={false} style={{ background: '#e6f7ff', borderRadius: '10px' }}>
+              <Card variant="borderless" style={{ background: '#e6f7ff', borderRadius: '10px' }}>
                 <Statistic
                   title="Tổng số giờ"
                   value={stats.totalHours}
@@ -185,7 +187,7 @@ export const Analytics: React.FC = () => {
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
-              <Card bordered={false} style={{ background: '#f6ffed', borderRadius: '10px' }}>
+              <Card variant="borderless" style={{ background: '#f6ffed', borderRadius: '10px' }}>
                 <Statistic
                   title="Tổng sự kiện"
                   value={stats.totalCount}
@@ -196,7 +198,7 @@ export const Analytics: React.FC = () => {
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
-              <Card bordered={false} style={{ background: '#fff7e6', borderRadius: '10px' }}>
+              <Card variant="borderless" style={{ background: '#fff7e6', borderRadius: '10px' }}>
                 <Statistic
                   title="Danh mục lớn nhất"
                   value={stats.topCategory}
@@ -206,7 +208,7 @@ export const Analytics: React.FC = () => {
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
-              <Card bordered={false} style={{ background: '#f9f0ff', borderRadius: '10px' }}>
+              <Card variant="borderless" style={{ background: '#f9f0ff', borderRadius: '10px' }}>
                 <Statistic
                   title="Trung bình/ngày"
                   value={Number((stats.totalHours / (timeFilter === '7days' ? 7 : 30)).toFixed(1))}
@@ -223,7 +225,7 @@ export const Analytics: React.FC = () => {
             <Col xs={24} lg={12}>
               <Card
                 title="Số Giờ Học & Làm Theo Tuần (Theo Thứ)"
-                bordered={false}
+                variant="borderless"
                 style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               >
                 {stats.totalCount === 0 ? (
@@ -239,7 +241,7 @@ export const Analytics: React.FC = () => {
             <Col xs={24} lg={12}>
               <Card
                 title="Tỷ Lệ Thời Gian Phân Bổ Theo Danh Mục"
-                bordered={false}
+                variant="borderless"
                 style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               >
                 {stats.totalCount === 0 ? (
