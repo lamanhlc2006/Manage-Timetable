@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm } from 'antd';
+import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, notification, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm, Skeleton, Empty } from 'antd';
 import dayjs from 'dayjs';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { ScheduleEvent, CreateScheduleInput, patchScheduleTime } from '../services/scheduleService';
@@ -20,6 +20,7 @@ import {
   ClearOutlined,
   DownloadOutlined,
   FilePdfOutlined,
+  FilterOutlined,
 } from '@ant-design/icons';
 
 import FullCalendar from '@fullcalendar/react';
@@ -32,6 +33,7 @@ const { Option } = Select;
 
 interface ScheduleCalendarProps {
   schedules: ScheduleEvent[];
+  loading?: boolean;
   isAdmin: boolean;
   onCreate: (data: CreateScheduleInput & { force?: boolean }) => Promise<void>;
   onUpdate: (id: string, data: Partial<CreateScheduleInput> & { force?: boolean; recurrenceEditMode?: 'all' | 'current'; instanceDate?: string }) => Promise<void>;
@@ -49,6 +51,7 @@ interface ScheduleCalendarProps {
 
 export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   schedules,
+  loading = false,
   isAdmin,
   onCreate,
   onUpdate,
@@ -698,7 +701,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       return;
     }
 
-    const { event, revert } = changeInfo;
+    const { event, revert, oldEvent } = changeInfo;
     const eventId = event.id;
     const startIso = event.start ? event.start.toISOString() : event.startStr;
     let endIso = event.end ? event.end.toISOString() : event.endStr;
@@ -706,6 +709,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     if (!endIso && event.start) {
       endIso = dayjs(event.start).add(1, 'hour').toISOString();
     }
+
+    const prevStartIso = oldEvent?.start ? oldEvent.start.toISOString() : oldEvent?.startStr;
+    const prevEndIso = oldEvent?.end ? oldEvent.end.toISOString() : oldEvent?.endStr;
 
     const isVirtualInstance = eventId.includes('_');
     const editMode = isVirtualInstance ? 'current' : undefined;
@@ -720,7 +726,44 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           recurrenceEditMode: editMode,
         });
       }
-      message.success('Đã cập nhật thời gian sự kiện!');
+
+      const notifKey = `undo_drag_${eventId}_${Date.now()}`;
+      notification.info({
+        key: notifKey,
+        message: 'Đã di chuyển lịch trình',
+        description: 'Thời gian sự kiện đã được cập nhật thành công.',
+        duration: 5,
+        btn: (
+          <Button
+            type="primary"
+            size="small"
+            onClick={async () => {
+              notification.destroy(notifKey);
+              if (prevStartIso && prevEndIso) {
+                try {
+                  if (onPatchTime) {
+                    await onPatchTime(eventId, prevStartIso, prevEndIso, editMode);
+                  } else {
+                    await patchScheduleTime(eventId, {
+                      startTime: prevStartIso,
+                      endTime: prevEndIso,
+                      recurrenceEditMode: editMode,
+                    });
+                  }
+                  message.success('Đã hoàn tác di chuyển lịch trình!');
+                } catch (undoErr) {
+                  revert();
+                  message.error('Không thể hoàn tác.');
+                }
+              } else {
+                revert();
+              }
+            }}
+          >
+            Hoàn tác
+          </Button>
+        ),
+      });
     } catch (err: any) {
       revert(); // Rollback FullCalendar event position immediately on error
       if (err.response && err.response.status === 409) {
@@ -755,28 +798,18 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       border-radius: 6px !important;
       padding: 6px 14px !important;
       box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02) !important;
-      text-transform: capitalize !important;
-      transition: all 0.2s !important;
+      transition: all 0.2s ease !important;
     }
     .fc .fc-button-primary:hover {
-      color: #1890ff !important;
-      border-color: #1890ff !important;
-      background-color: #ffffff !important;
-    }
-    .fc .fc-button-primary:disabled {
-      color: #bfbfbf !important;
-      border-color: #d9d9d9 !important;
       background-color: #f5f5f5 !important;
-      cursor: not-allowed !important;
+      color: #1890ff !important;
+      border-color: #40a9ff !important;
     }
-    .fc .fc-button-active, .fc .fc-button-primary:active {
+    .fc .fc-button-primary:not(:disabled).fc-button-active,
+    .fc .fc-button-primary:not(:disabled):active {
+      background-color: #e6f7ff !important;
       color: #1890ff !important;
       border-color: #1890ff !important;
-      background-color: #e6f7ff !important;
-      font-weight: 600 !important;
-    }
-    .fc .fc-button-primary:focus {
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
     }
     .fc-theme-standard .fc-scrollgrid {
       border: 1px solid #f0f0f0 !important;
@@ -788,7 +821,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       background-color: #fafafa !important;
       padding: 10px 0 !important;
       font-weight: 600 !important;
-      color: #262626 !important;
+      color: #434343 !important;
       border-bottom: 1px solid #f0f0f0 !important;
     }
     .fc .fc-daygrid-day-number {
@@ -808,9 +841,16 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       border-top: none !important;
       border-bottom: none !important;
       border-right: none !important;
-      border-radius: 3px !important;
+      border-radius: 4px !important;
       padding: 2px 6px !important;
       margin: 1px 2px !important;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .fc-event:hover {
+      transform: scale(1.02) !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18) !important;
+      z-index: 5 !important;
+      cursor: pointer !important;
     }
     .fc-h-event .fc-event-main {
       color: #333333 !important;
@@ -847,6 +887,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       border-width: 4px !important;
     }
   `;
+
+  const activeFilterCount =
+    (keyword.trim() ? 1 : 0) +
+    (categories.length > 0 ? 1 : 0) +
+    (priority.length > 0 ? 1 : 0) +
+    (selectedCreator ? 1 : 0);
 
   return (
     <div>
@@ -903,6 +949,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+          <FilterOutlined style={{ color: '#1890ff' }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#595959' }}>Bộ lọc tìm kiếm</span>
+          {activeFilterCount > 0 && (
+            <Badge count={activeFilterCount} overflowCount={99} style={{ backgroundColor: '#1890ff' }} />
+          )}
+        </div>
         <Space wrap size="middle" style={{ width: '100%', justifyContent: 'flex-start' }}>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>Từ khóa:</div>
@@ -1031,22 +1084,47 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
       {/* FullCalendar Component */}
       <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0' }}>
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
-          }}
-          buttonText={{
-            today: 'Hôm nay',
-            month: 'Tháng',
-            week: 'Tuần',
-            day: 'Ngày',
-            list: 'Danh sách',
-          }}
+        {loading ? (
+          <div style={{ padding: '24px' }}>
+            <Skeleton active paragraph={{ rows: 10 }} />
+          </div>
+        ) : (
+          <>
+            {schedules.length === 0 && (
+              <div style={{ padding: '24px 16px', textAlign: 'center', background: '#fafafa', borderRadius: '8px', marginBottom: '16px' }}>
+                <Empty
+                  description="Chưa có sự kiện nào trong lịch trình"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                >
+                  {isAdmin && (
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => handleOpenCreateModal()}
+                      style={{ marginTop: '8px', borderRadius: '6px' }}
+                    >
+                      Tạo sự kiện đầu tiên
+                    </Button>
+                  )}
+                </Empty>
+              </div>
+            )}
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+              initialView="dayGridMonth"
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+              }}
+              buttonText={{
+                today: 'Hôm nay',
+                month: 'Tháng',
+                week: 'Tuần',
+                day: 'Ngày',
+                list: 'Danh sách',
+              }}
           allDaySlot={false} // clean week/day schedules without all-day rows
           firstDay={1} // Start week on Monday
           editable={isAdmin}
@@ -1064,6 +1142,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           datesSet={handleDatesSet}
           height="auto"
         />
+          </>
+        )}
       </div>
 
       {/* Recurrence Choice Confirmation Dialog */}

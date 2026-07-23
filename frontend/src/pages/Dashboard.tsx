@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Card, message } from 'antd';
+import { Card, message } from 'antd';
 import {
   createSchedule,
   updateSchedule,
@@ -111,17 +111,16 @@ export const Dashboard: React.FC = () => {
   return (
     <div>
       <Card variant="borderless" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-        <Spin spinning={loading} tip="Đang tải dữ liệu lịch trình...">
-          <ScheduleCalendar
-            schedules={schedules}
-            isAdmin={isAdmin}
-            onCreate={handleCreate}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onPatchTime={handlePatchTime}
-            onFilterChange={setFilters}
-          />
-        </Spin>
+        <ScheduleCalendar
+          schedules={schedules}
+          loading={loading}
+          isAdmin={isAdmin}
+          onCreate={handleCreate}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onPatchTime={handlePatchTime}
+          onFilterChange={setFilters}
+        />
       </Card>
     </div>
   );

@@ -42,10 +42,25 @@ const { Text } = Typography;
 export const CommonLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Responsive breakpoints handler (< 768px: Mobile bottom bar, 768-1024px: Auto-collapse sidebar)
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      if (width < 1024) {
+        setCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Retrieve user data from localStorage safely with useMemo
   const userString = localStorage.getItem('user');
@@ -326,47 +341,60 @@ export const CommonLayout: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh', background: theme === 'dark' ? '#141414' : '#f4f6fc' }}>
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        theme={theme}
-        style={{
-          boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
-          zIndex: 10,
-          borderRight: theme === 'dark' ? '1px solid #303030' : 'none',
-        }}
-      >
-        <div
+      <style>{`
+        @media (max-width: 767px) {
+          .ant-layout-sider, .ant-layout-sider-children {
+            display: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            flex: 0 0 0 !important;
+          }
+        }
+      `}</style>
+      {!isMobile && (
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          theme={theme}
           style={{
-            height: '64px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            borderBottom: theme === 'dark' ? '1px solid #303030' : '1px solid #f0f0f0',
-            fontWeight: 'bold',
-            fontSize: collapsed ? '18px' : '16px',
-            color: '#1890ff',
-            transition: 'all 0.2s',
+            boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
+            zIndex: 10,
+            borderRight: theme === 'dark' ? '1px solid #303030' : 'none',
           }}
         >
-          <ScheduleOutlined style={{ fontSize: '24px' }} />
-          {!collapsed && <span>TIMETABLE</span>}
-        </div>
-        <Menu
-          mode="inline"
-          theme={theme}
-          selectedKeys={getActiveKey()}
-          items={menuItems}
-          style={{ borderRight: 0, marginTop: '16px' }}
-        />
-      </Sider>
+          <div
+            style={{
+              height: '64px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderBottom: theme === 'dark' ? '1px solid #303030' : '1px solid #f0f0f0',
+              fontWeight: 'bold',
+              fontSize: collapsed ? '18px' : '16px',
+              color: '#1890ff',
+              transition: 'all 0.2s',
+            }}
+          >
+            <ScheduleOutlined style={{ fontSize: '24px' }} />
+            {!collapsed && <span>TIMETABLE</span>}
+          </div>
+          <Menu
+            mode="inline"
+            theme={theme}
+            selectedKeys={getActiveKey()}
+            items={menuItems}
+            style={{ borderRight: 0, marginTop: '16px' }}
+          />
+        </Sider>
+      )}
       <Layout>
         <Header
           style={{
             background: theme === 'dark' ? '#1f1f1f' : '#fff',
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -375,14 +403,21 @@ export const CommonLayout: React.FC = () => {
             zIndex: 9,
           }}
         >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{ fontSize: '16px', width: 64, height: 64, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : undefined }}
-          />
+          {isMobile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '16px', color: '#1890ff' }}>
+              <ScheduleOutlined style={{ fontSize: '22px' }} />
+              <span>TIMETABLE</span>
+            </div>
+          ) : (
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{ fontSize: '16px', width: 64, height: 64, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : undefined }}
+            />
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '20px' }}>
             {/* Theme Toggle Button */}
             <Tooltip title={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}>
               <Button
@@ -413,13 +448,15 @@ export const CommonLayout: React.FC = () => {
               </Badge>
             </Popover>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
-              <span style={{ fontWeight: 500, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : '#333' }}>
-                {user ? user.username : 'Guest'}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
+              {!isMobile && (
+                <span style={{ fontWeight: 500, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : '#333' }}>
+                  {user ? user.username : 'Guest'}
+                </span>
+              )}
               {user && (
-                <Tag color={user.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'uppercase' }}>
+                <Tag color={user.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'uppercase', margin: 0 }}>
                   {user.role}
                 </Tag>
               )}
@@ -437,17 +474,19 @@ export const CommonLayout: React.FC = () => {
                 danger
                 ghost
                 icon={<LogoutOutlined />}
+                size={isMobile ? 'small' : 'middle'}
                 style={{ borderRadius: '6px' }}
               >
-                Đăng xuất
+                {!isMobile && 'Đăng xuất'}
               </Button>
             </Popconfirm>
           </div>
         </Header>
         <Content
           style={{
-            margin: '24px',
-            padding: '24px',
+            margin: isMobile ? '12px' : '24px',
+            padding: isMobile ? '12px' : '24px',
+            marginBottom: isMobile ? '72px' : '24px',
             background: theme === 'dark' ? '#1f1f1f' : '#fff',
             borderRadius: '12px',
             boxShadow: theme === 'dark' ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.05)',
@@ -459,6 +498,61 @@ export const CommonLayout: React.FC = () => {
           <Outlet />
         </Content>
       </Layout>
+
+      {/* Mobile Bottom Navigation Tab Bar */}
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '60px',
+            background: theme === 'dark' ? '#1f1f1f' : '#ffffff',
+            borderTop: theme === 'dark' ? '1px solid #303030' : '1px solid #f0f0f0',
+            display: 'flex',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            zIndex: 1000,
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+          }}
+        >
+          <Button
+            type={location.pathname === '/dashboard' ? 'primary' : 'text'}
+            icon={<CalendarOutlined style={{ fontSize: '18px' }} />}
+            onClick={() => navigate('/dashboard')}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+          >
+            Lịch
+          </Button>
+          <Button
+            type={location.pathname === '/analytics' ? 'primary' : 'text'}
+            icon={<BarChartOutlined style={{ fontSize: '18px' }} />}
+            onClick={() => navigate('/analytics')}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+          >
+            Thống kê
+          </Button>
+          {user && user.role === 'admin' && (
+            <Button
+              type={location.pathname === '/create-schedule' ? 'primary' : 'text'}
+              icon={<PlusCircleOutlined style={{ fontSize: '18px' }} />}
+              onClick={() => navigate('/create-schedule')}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+            >
+              Tạo mới
+            </Button>
+          )}
+          <Button
+            type={location.pathname === '/settings' ? 'primary' : 'text'}
+            icon={<SettingOutlined style={{ fontSize: '18px' }} />}
+            onClick={() => navigate('/settings')}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+          >
+            Cài đặt
+          </Button>
+        </div>
+      )}
     </Layout>
   );
 };

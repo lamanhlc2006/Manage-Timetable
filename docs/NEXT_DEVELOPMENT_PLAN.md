@@ -74,15 +74,15 @@
 **Effort**: 🟡 Trung bình | **Impact**: Cao
 
 **Nội dung:**
-- [ ] **Responsive breakpoints**:
+- [x] **Responsive breakpoints**:
   - `< 768px`: Auto-collapse sidebar, bottom tab bar thay thế sidebar menu
   - `768-1024px`: Sidebar ẩn mặc định, hamburger menu
   - `≥ 1024px`: Sidebar + Calendar 2-column layout (hiện tại)
-- [ ] **Skeleton loading**: Thay Spin/Spinner bằng skeleton khi load calendar data
-- [ ] **Empty state**: Illustration + CTA "Tạo sự kiện đầu tiên" khi lịch trống
-- [ ] **Hover effects**: Scale 1.02 + box-shadow khi hover event trên calendar
-- [ ] **Toast Undo**: Sau drag/drop hiển thị toast "Đã di chuyển. Hoàn tác?" (5s countdown)
-- [ ] **Badge count trên filter icon** khi có filter đang active
+- [x] **Skeleton loading**: Thay Spin/Spinner bằng skeleton khi load calendar data
+- [x] **Empty state**: Illustration + CTA "Tạo sự kiện đầu tiên" khi lịch trống
+- [x] **Hover effects**: Scale 1.02 + box-shadow khi hover event trên calendar
+- [x] **Toast Undo**: Sau drag/drop hiển thị toast "Đã di chuyển. Hoàn tác?" (5s countdown)
+- [x] **Badge count trên filter icon** khi có filter đang active
 
 ---
 
