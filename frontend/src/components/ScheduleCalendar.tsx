@@ -10,6 +10,7 @@ import {
   deleteCategory,
   CategoryItem,
 } from '../services/categoryService';
+import { fetchUsers } from '../services/userService';
 import { downloadIcsFile, downloadPdfReport } from '../services/exportService';
 import {
   PlusOutlined,
@@ -42,6 +43,7 @@ interface ScheduleCalendarProps {
     priority?: string[];
     startTime?: string;
     endTime?: string;
+    creator?: string;
   }) => void;
 }
 
@@ -60,6 +62,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [form] = Form.useForm();
   const calendarRef = useRef<FullCalendar>(null);
 
+  const [isQuickAddModalVisible, setIsQuickAddModalVisible] = useState(false);
+  const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  const [quickAddForm] = Form.useForm();
+  const searchInputRef = useRef<any>(null);
+
   // Dynamic Categories state
   const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -67,6 +74,24 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [newCatColor, setNewCatColor] = useState('#1890ff');
   const [newCatIcon, setNewCatIcon] = useState('📌');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
+
+  // User list state for admin filter
+  const [usersList, setUsersList] = useState<{ _id: string; username: string }[]>([]);
+  const [selectedCreator, setSelectedCreator] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (isAdmin) {
+      const loadUsers = async () => {
+        try {
+          const response = await fetchUsers({ page: 1, limit: 100 });
+          setUsersList(response.users);
+        } catch (err) {
+          console.error('Error fetching users for filter:', err);
+        }
+      };
+      loadUsers();
+    }
+  }, [isAdmin]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -139,10 +164,97 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     }
   };
 
-  // Keyboard Shortcuts (N: Quick Add, T: Today, D: Day, W: Week, M: Month)
-  useHotkeys('n', () => {
-    if (isAdmin && !isModalVisible) {
-      handleOpenCreateModal();
+  const handleOpenQuickAddModal = () => {
+    if (!isAdmin) return;
+    setIsQuickAddModalVisible(true);
+    const start = dayjs().add(1, 'hour').minute(0).second(0);
+    const end = start.clone().add(1, 'hour');
+    quickAddForm.setFieldsValue({
+      title: '',
+      range: [start, end],
+    });
+  };
+
+  const handleQuickAddSubmit = async () => {
+    try {
+      const values = await quickAddForm.validateFields();
+      const [startDayjs, endDayjs] = values.range;
+
+      if (startDayjs.isAfter(endDayjs) || startDayjs.isSame(endDayjs)) {
+        message.error('Thời gian bắt đầu phải trước thời gian kết thúc!');
+        return;
+      }
+
+      const inputData: CreateScheduleInput & { force?: boolean } = {
+        title: values.title.trim(),
+        description: '',
+        startTime: startDayjs.toISOString(),
+        endTime: endDayjs.toISOString(),
+        color: '#1890ff',
+        category: categoriesList[0]?.name || 'Học tập',
+        tags: [],
+        priority: 'medium',
+      };
+
+      const executeSave = async (forceOption = false) => {
+        await onCreate({ ...inputData, force: forceOption });
+        message.success(forceOption ? 'Tạo nhanh lịch trình thành công (Bỏ qua trùng lặp)!' : 'Tạo nhanh lịch trình thành công!');
+        setIsQuickAddModalVisible(false);
+        quickAddForm.resetFields();
+      };
+
+      try {
+        await executeSave(false);
+      } catch (err: any) {
+        if (err.response && err.response.status === 409 && err.response.data && err.response.data.conflicts) {
+          // Display conflict confirmation modal
+          Modal.confirm({
+            title: 'Cảnh báo trùng lịch trình!',
+            content: (
+              <div>
+                <p>Phát hiện các lịch trình sau bị chồng lấp thời gian:</p>
+                <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
+                  {err.response.data.conflicts.map((conflict: any) => (
+                    <li key={conflict._id} style={{ marginBottom: '8px' }}>
+                      <strong style={{ color: conflict.color }}>{conflict.title}</strong>
+                      <div style={{ fontSize: '11px', color: '#666' }}>
+                        {dayjs(conflict.startTime).format('HH:mm DD/MM/YYYY')} - {dayjs(conflict.endTime).format('HH:mm DD/MM/YYYY')}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ marginTop: '12px', fontWeight: 500, color: '#ff4d4f' }}>
+                  Bạn có chắc chắn muốn xếp chồng và tiếp tục lưu không?
+                </p>
+              </div>
+            ),
+            okText: 'Vẫn lưu (Force)',
+            okType: 'danger',
+            cancelText: 'Hủy',
+            onOk: async () => {
+              await executeSave(true);
+            },
+          });
+        } else {
+          throw err;
+        }
+      }
+    } catch (err: any) {
+      if (err.errorFields) return;
+      console.error(err);
+      if (err.response && err.response.data && err.response.data.message) {
+        message.error(err.response.data.message);
+      } else {
+        message.error('Đã xảy ra lỗi, vui lòng thử lại.');
+      }
+    }
+  };
+
+  // Keyboard Shortcuts (N: Quick Add, T: Today, D: Day, W: Week, M: Month, /: Focus Search, Esc: Close, ?: Help)
+  useHotkeys('n', (e) => {
+    e.preventDefault();
+    if (isAdmin && !isModalVisible && !isQuickAddModalVisible && !isCategoryModalVisible && !isHelpModalVisible) {
+      handleOpenQuickAddModal();
     }
   }, { enableOnFormTags: false });
 
@@ -160,6 +272,23 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   useHotkeys('m', () => {
     calendarRef.current?.getApi().changeView('dayGridMonth');
+  }, { enableOnFormTags: false });
+
+  useHotkeys('/', (e) => {
+    e.preventDefault();
+    searchInputRef.current?.focus();
+  }, { enableOnFormTags: false });
+
+  useHotkeys('escape', () => {
+    setIsModalVisible(false);
+    setIsQuickAddModalVisible(false);
+    setIsCategoryModalVisible(false);
+    setIsHelpModalVisible(false);
+  }, { enableOnFormTags: true });
+
+  useHotkeys('shift+?, ?', (e) => {
+    e.preventDefault();
+    setIsHelpModalVisible(true);
   }, { enableOnFormTags: false });
 
   // Export Handlers
@@ -205,7 +334,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     newKeyword: string,
     newCats: string[],
     newPriorities: string[],
-    range: typeof currentRange
+    range: typeof currentRange,
+    newCreator?: string
   ) => {
     onFilterChange({
       keyword: newKeyword || undefined,
@@ -213,6 +343,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       priority: newPriorities.length > 0 ? newPriorities : undefined,
       startTime: range?.start || undefined,
       endTime: range?.end || undefined,
+      creator: newCreator !== undefined ? (newCreator || undefined) : selectedCreator,
     });
   };
 
@@ -239,11 +370,17 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     triggerFilterChange(keyword, categories, value, currentRange);
   };
 
+  const handleCreatorChange = (value: string | undefined) => {
+    setSelectedCreator(value);
+    triggerFilterChange(keyword, categories, priority, currentRange, value);
+  };
+
   const handleClearFilters = () => {
     setKeyword('');
     setCategories([]);
     setPriority([]);
-    triggerFilterChange('', [], [], currentRange);
+    setSelectedCreator(undefined);
+    triggerFilterChange('', [], [], currentRange, '');
   };
 
   // List of soft colors for styling events
@@ -770,6 +907,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <div>
             <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>Từ khóa:</div>
             <Input
+              ref={searchInputRef}
               placeholder="Tìm tiêu đề, mô tả..."
               value={keyword}
               onChange={handleKeywordChange}
@@ -815,13 +953,32 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             </Select>
           </div>
 
+          {isAdmin && (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>Người tạo:</div>
+              <Select
+                placeholder="Chọn người tạo"
+                value={selectedCreator}
+                onChange={handleCreatorChange}
+                style={{ width: '180px' }}
+                allowClear
+              >
+                {usersList.map((user) => (
+                  <Option key={user._id} value={user._id}>
+                    {user.username}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignSelf: 'flex-end', height: '32px', marginBottom: '2px' }}>
             <Button
               type="text"
               danger
               icon={<ClearOutlined />}
               onClick={handleClearFilters}
-              disabled={!keyword && categories.length === 0 && priority.length === 0}
+              disabled={!keyword && categories.length === 0 && priority.length === 0 && !selectedCreator}
               style={{ borderRadius: '6px', fontWeight: 500 }}
             >
               Xóa bộ lọc
@@ -833,11 +990,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       {/* Keyboard Shortcuts Hint Bar */}
       <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 500 }}>Phím tắt:</span>
-        <Tooltip title="Nhấn N để mở tạo lịch nhanh">
-          <Tag color="blue" style={{ cursor: 'pointer' }} onClick={() => isAdmin && handleOpenCreateModal()}>
-            <kbd>N</kbd> Quick Add
-          </Tag>
-        </Tooltip>
+        {isAdmin && (
+          <Tooltip title="Nhấn N để mở tạo lịch nhanh">
+            <Tag color="blue" style={{ cursor: 'pointer' }} onClick={handleOpenQuickAddModal}>
+              <kbd>N</kbd> Tạo nhanh
+            </Tag>
+          </Tooltip>
+        )}
         <Tooltip title="Nhấn T để về ngày hôm nay">
           <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().today()}>
             <kbd>T</kbd> Hôm nay
@@ -856,6 +1015,16 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         <Tooltip title="Nhấn M để chuyển sang xem theo Tháng">
           <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('dayGridMonth')}>
             <kbd>M</kbd> Tháng
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn / để focus tìm kiếm">
+          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => searchInputRef.current?.focus()}>
+            <kbd>/</kbd> Tìm kiếm
+          </Tag>
+        </Tooltip>
+        <Tooltip title="Nhấn ? để hiển thị danh sách phím tắt">
+          <Tag color="warning" style={{ cursor: 'pointer' }} onClick={() => setIsHelpModalVisible(true)}>
+            <kbd>?</kbd> Trợ giúp
           </Tag>
         </Tooltip>
       </div>
@@ -1327,6 +1496,141 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             </Form.Item>
           </Form>
         )}
+      </Modal>
+
+      {/* Quick Add Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⚡</span>
+            <span>Tạo nhanh lịch trình</span>
+          </div>
+        }
+        open={isQuickAddModalVisible}
+        onCancel={() => setIsQuickAddModalVisible(false)}
+        footer={null}
+        destroyOnClose
+        width={420}
+      >
+        <Form
+          form={quickAddForm}
+          layout="vertical"
+          onFinish={handleQuickAddSubmit}
+          size="large"
+          style={{ marginTop: '16px' }}
+        >
+          <Form.Item
+            name="title"
+            label="Tiêu đề sự kiện"
+            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề sự kiện!' }]}
+          >
+            <Input placeholder="Ví dụ: Học React, Tập thể dục..." autoFocus style={{ borderRadius: '6px' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="range"
+            label="Thời gian (Bắt đầu - Kết thúc)"
+            rules={[{ required: true, message: 'Vui lòng chọn thời gian!' }]}
+          >
+            <DatePicker.RangePicker
+              showTime={{ format: 'HH:mm' }}
+              format="HH:mm YYYY-MM-DD"
+              style={{ width: '100%', borderRadius: '6px' }}
+              placeholder={['Bắt đầu', 'Kết thúc']}
+            />
+          </Form.Item>
+
+          <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '20px', background: '#fafafa', padding: '8px 12px', borderRadius: '6px' }}>
+            💡 Mặc định sự kiện tạo nhanh sẽ có danh mục là <strong>{categoriesList[0]?.name || 'Học tập'}</strong>, mức ưu tiên là <strong>Trung bình</strong>. Nhấn <strong>Enter</strong> trong ô tiêu đề để lưu nhanh.
+          </div>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setIsQuickAddModalVisible(false)} style={{ borderRadius: '6px' }}>Hủy</Button>
+              <Button type="primary" htmlType="submit" style={{ borderRadius: '6px' }}>Tạo mới</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⌨️</span>
+            <span>Phím tắt hệ thống</span>
+          </div>
+        }
+        open={isHelpModalVisible}
+        onCancel={() => setIsHelpModalVisible(false)}
+        footer={null}
+        destroyOnClose
+        width={460}
+      >
+        <div style={{ marginTop: '16px' }}>
+          <p style={{ color: '#8c8c8c', marginBottom: '20px' }}>
+            Sử dụng phím tắt để thao tác và chuyển đổi các chế độ xem nhanh chóng. Các phím tắt sẽ tự động vô hiệu hóa khi bạn đang nhập liệu.
+          </p>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {isAdmin && (
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 8px' }}>
+                    <Tag color="blue"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>N</kbd></Tag>
+                  </td>
+                  <td style={{ padding: '12px 8px', fontWeight: 500 }}>Tạo nhanh sự kiện mới (Quick Add)</td>
+                </tr>
+              )}
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px', width: '80px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>T</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Nhảy về ngày hôm nay</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>D</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Ngày (Day View)</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>W</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Tuần (Week View)</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>M</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Tháng (Month View)</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>/</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Đưa con trỏ vào ô tìm kiếm từ khóa</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Esc</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Đóng modal / popup đang hiển thị</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '12px 8px' }}>
+                  <Tag color="warning"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>?</kbd> hoặc <kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Shift + /</kbd></Tag>
+                </td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Mở bảng phím tắt này</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div style={{ textAlign: 'right', marginTop: '24px' }}>
+            <Button type="primary" onClick={() => setIsHelpModalVisible(false)} style={{ borderRadius: '6px' }}>Đóng</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

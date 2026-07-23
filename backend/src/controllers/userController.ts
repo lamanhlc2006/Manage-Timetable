@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
+import { Schedule } from '../models/Schedule';
 import { AuthRequest } from '../middlewares/authMiddleware';
 
 /**
@@ -33,8 +34,18 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
 
     const pages = Math.ceil(total / limit);
 
+    const usersWithStats = await Promise.all(
+      users.map(async (u) => {
+        const scheduleCount = await Schedule.countDocuments({ createdBy: u._id });
+        return {
+          ...u.toObject(),
+          scheduleCount,
+        };
+      })
+    );
+
     res.json({
-      users,
+      users: usersWithStats,
       total,
       page,
       pages,
@@ -136,6 +147,40 @@ export const toggleUserStatus = async (req: AuthRequest, res: Response): Promise
     });
   } catch (error: any) {
     console.error('Toggle user status error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+/**
+ * @desc    Reset user password to default by Admin
+ * @route   POST /api/users/:id/reset-password
+ * @access  Private/Admin
+ */
+export const resetUserPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      return;
+    }
+
+    const defaultPassword = 'user123';
+    user.password = defaultPassword;
+    await user.save(); // pre-save hook will hash it
+
+    // Create system notification for user
+    await Notification.create({
+      recipient: user._id,
+      type: 'system',
+      title: 'Mật khẩu đã được reset',
+      message: 'Quản trị viên đã đặt lại mật khẩu của bạn thành mặc định (user123). Vui lòng đổi lại mật khẩu sớm.',
+    });
+
+    res.json({ message: 'Đặt lại mật khẩu thành công. Mật khẩu mặc định là: user123' });
+  } catch (error: any) {
+    console.error('Reset user password error:', error);
     res.status(500).json({ message: error.message || 'Server error' });
   }
 };

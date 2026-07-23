@@ -360,13 +360,17 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
  * @access  Private (Registered users)
  */
 export const searchSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { keyword, categories, priority, startTime, endTime } = req.query;
+  const { keyword, categories, priority, startTime, endTime, creator } = req.query;
 
   try {
     const rangeStart = startTime ? new Date(startTime as string) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const rangeEnd = endTime ? new Date(endTime as string) : new Date(Date.now() + 180 * 24 * 3600 * 1000);
 
     const query: any = {};
+
+    if (creator) {
+      query.createdBy = creator;
+    }
 
     if (keyword) {
       query.$or = [

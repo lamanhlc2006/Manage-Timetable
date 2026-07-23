@@ -215,6 +215,7 @@ export const searchSchedules = async (params: {
   priority?: string[];
   startTime?: string;
   endTime?: string;
+  creator?: string;
 }): Promise<ScheduleEvent[]> => {
   if (isOffline()) {
     let data = getOfflineSchedules();
@@ -231,6 +232,9 @@ export const searchSchedules = async (params: {
     }
     if (params.priority && params.priority.length > 0) {
       data = data.filter((item) => item.priority && params.priority!.includes(item.priority));
+    }
+    if (params.creator) {
+      data = data.filter((item) => item.createdBy?._id === params.creator);
     }
     if (params.startTime) {
       const start = new Date(params.startTime).getTime();
@@ -253,6 +257,7 @@ export const searchSchedules = async (params: {
   }
   if (params.startTime) queryParams.append('startTime', params.startTime);
   if (params.endTime) queryParams.append('endTime', params.endTime);
+  if (params.creator) queryParams.append('creator', params.creator);
 
   const response = await api.get<ScheduleEvent[]>(`/schedules/search?${queryParams.toString()}`);
   return response.data;

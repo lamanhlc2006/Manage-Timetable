@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: 'admin' | 'user';
   isActive: boolean;
   matchPassword: (enteredPassword: string) => Promise<boolean>;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

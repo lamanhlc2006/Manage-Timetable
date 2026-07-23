@@ -11,7 +11,7 @@
 | Phase | Tiến độ | Ghi chú |
 |---|---|---|
 | Phase 1 — MVP Enhancement | 🟢 **100%** | Hoàn thành toàn bộ (bao gồm Notification System) |
-| Phase 2 — Should-Have | 🟡 **~95%** | Hoàn thành Category UI ✅, Còn thiếu: một số UX nhỏ |
+| Phase 2 — Should-Have | 🟢 **100%** | Hoàn thành Category UI & Shortcuts/Quick Add ✅ |
 | Phase 3 — Nice-to-Have | 🟡 **~15%** | Dark Mode ✅, Settings ✅. Còn lại chưa bắt đầu |
 
 ---
@@ -46,15 +46,15 @@
 **Lý do ưu tiên**: `react-hotkeys-hook` đã được cài đặt, UX chuyên nghiệp ngay lập tức.
 
 **Nội dung:**
-- [ ] Đăng ký phím tắt toàn cục vào `ScheduleCalendar.tsx` hoặc `CommonLayout.tsx`:
+- [x] Đăng ký phím tắt toàn cục vào `ScheduleCalendar.tsx` hoặc `CommonLayout.tsx`:
   - `N` → Mở Quick Add Modal (tạo sự kiện nhanh)
   - `T` → Nhảy về hôm nay
   - `D` / `W` / `M` → Chuyển sang xem Ngày / Tuần / Tháng
   - `/` → Focus vào ô tìm kiếm
   - `Esc` → Đóng modal/popup đang mở
-- [ ] Quick Add Modal: Popup nhẹ chỉ có Title + Start/End → Enter tạo nhanh
-- [ ] Hiển thị shortcut cheat sheet khi nhấn `?` hoặc `Shift+/`
-- [ ] Đảm bảo phím tắt không kích hoạt khi đang focus vào input/textarea
+- [x] Quick Add Modal: Popup nhẹ chỉ có Title + Start/End → Enter tạo nhanh
+- [x] Hiển thị shortcut cheat sheet khi nhấn `?` hoặc `Shift+/`
+- [x] Đảm bảo phím tắt không kích hoạt khi đang focus vào input/textarea
 
 ---
 
@@ -63,9 +63,9 @@
 **Effort**: 🟢 Thấp | **Impact**: Trung bình
 
 **Nội dung:**
-- [ ] **Admin reset mật khẩu**: Nút "Reset mật khẩu" trên bảng UserManagement → đặt password mặc định + tạo notification cho user
-- [ ] **Thống kê user**: Hiển thị thêm cột "Số sự kiện" và "Đăng nhập gần nhất" trong bảng quản lý user
-- [ ] **Lọc sự kiện theo người tạo (Admin)**: Dropdown filter "Người tạo" trên ScheduleCalendar, chỉ hiển thị cho role Admin
+- [x] **Admin reset mật khẩu**: Nút "Reset mật khẩu" trên bảng UserManagement → đặt password mặc định + tạo notification cho user
+- [x] **Thống kê user**: Hiển thị thêm cột "Số sự kiện" và "Đăng nhập gần nhất" trong bảng quản lý user
+- [x] **Lọc sự kiện theo người tạo (Admin)**: Dropdown filter "Người tạo" trên ScheduleCalendar, chỉ hiển thị cho role Admin
 
 ---
 

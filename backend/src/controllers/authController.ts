@@ -99,6 +99,10 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         sameSite: 'strict',
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
+      
+      // Update lastLoginAt timestamp
+      await User.findByIdAndUpdate(user._id, { lastLoginAt: new Date() });
+
       res.json({
         _id: user._id,
         username: user.username,

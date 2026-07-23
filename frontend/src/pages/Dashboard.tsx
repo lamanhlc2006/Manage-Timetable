@@ -21,6 +21,7 @@ export const Dashboard: React.FC = () => {
     priority?: string[];
     startTime?: string;
     endTime?: string;
+    creator?: string;
   }>({});
 
   // Retrieve user and check role on mount

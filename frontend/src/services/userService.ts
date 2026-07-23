@@ -6,6 +6,8 @@ export interface UserDetail {
   email: string;
   role: 'admin' | 'user';
   isActive: boolean;
+  lastLoginAt?: string;
+  scheduleCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -185,5 +187,14 @@ export const changePassword = async (data: ChangePasswordInput): Promise<{ messa
   }
 
   const response = await api.patch<{ message: string }>('/auth/change-password', data);
+  return response.data;
+};
+
+export const resetPassword = async (id: string): Promise<{ message: string }> => {
+  if (isOffline()) {
+    return { message: 'Đặt lại mật khẩu thành công (Offline Mode)' };
+  }
+
+  const response = await api.post<{ message: string }>(`/users/${id}/reset-password`);
   return response.data;
 };

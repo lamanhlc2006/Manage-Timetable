@@ -17,12 +17,14 @@ import {
   LockOutlined,
   UserSwitchOutlined,
   UserOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   fetchUsers,
   updateUserRole,
   toggleUserStatus,
+  resetPassword,
   UserDetail,
 } from '../services/userService';
 
@@ -133,6 +135,20 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  // Handle resetting user password
+  const handleResetPassword = async (record: UserDetail) => {
+    try {
+      setLoading(true);
+      const res = await resetPassword(record._id);
+      message.success(res.message || `Đã reset mật khẩu của ${record.username} thành mặc định "user123"!`);
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.response?.data?.message || err.message || 'Lỗi đặt lại mật khẩu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Ant Design Table Columns configuration
   const columns = [
     {
@@ -194,6 +210,23 @@ export const UserManagement: React.FC = () => {
       ),
     },
     {
+      title: 'Số sự kiện',
+      dataIndex: 'scheduleCount',
+      key: 'scheduleCount',
+      align: 'center' as const,
+      render: (count?: number) => (
+        <Tag color={count && count > 0 ? 'green' : 'default'} style={{ borderRadius: '4px', fontWeight: 600 }}>
+          {count || 0}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Đăng nhập gần nhất',
+      dataIndex: 'lastLoginAt',
+      key: 'lastLoginAt',
+      render: (date?: string) => (date ? dayjs(date).format('HH:mm DD/MM/YYYY') : <span style={{ color: '#bfbfbf', fontStyle: 'italic' }}>Chưa đăng nhập</span>),
+    },
+    {
       title: 'Ngày tạo',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -250,6 +283,30 @@ export const UserManagement: React.FC = () => {
                   disabled={isSelf}
                 >
                   {record.isActive ? 'Khóa tài khoản' : 'Mở khóa'}
+                </Button>
+              </Tooltip>
+            </Popconfirm>
+
+            <Popconfirm
+              title={`Bạn có chắc muốn đặt lại mật khẩu cho ${record.username} thành mặc định ("user123")?`}
+              onConfirm={() => handleResetPassword(record)}
+              disabled={isSelf}
+              okText="Đồng ý"
+              cancelText="Hủy"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title={isSelf ? 'Không thể tự reset mật khẩu của bản thân' : ''}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<KeyOutlined />}
+                  style={{
+                    color: isSelf ? '#bfbfbf' : '#faad14',
+                    fontWeight: 500,
+                  }}
+                  disabled={isSelf}
+                >
+                  Reset mật khẩu
                 </Button>
               </Tooltip>
             </Popconfirm>
