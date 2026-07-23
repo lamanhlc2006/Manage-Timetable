@@ -11,7 +11,7 @@
 | Phase | Tiến độ | Ghi chú |
 |---|---|---|
 | Phase 1 — MVP Enhancement | 🟢 **100%** | Hoàn thành toàn bộ (bao gồm Notification System) |
-| Phase 2 — Should-Have | 🟡 **~80%** | Còn thiếu: Category UI, một số UX nhỏ |
+| Phase 2 — Should-Have | 🟡 **~95%** | Hoàn thành Category UI ✅, Còn thiếu: một số UX nhỏ |
 | Phase 3 — Nice-to-Have | 🟡 **~15%** | Dark Mode ✅, Settings ✅. Còn lại chưa bắt đầu |
 
 ---
@@ -28,11 +28,11 @@
 **Lý do ưu tiên**: Backend API đã sẵn sàng (CRUD đầy đủ), chỉ cần xây dựng giao diện quản lý.
 
 **Nội dung:**
-- [ ] Tạo Modal/Drawer CRUD danh mục trực tiếp trên trang Settings hoặc Dashboard sidebar
-- [ ] Danh sách danh mục hiện có: hiển thị icon + tên + màu + nút sửa/xóa
-- [ ] Form tạo danh mục mới: nhập tên, chọn màu (color picker), chọn emoji icon
-- [ ] Bảo vệ danh mục `isSystem = true` — không cho xóa
-- [ ] Tích hợp danh mục tự tạo vào filter panel trên ScheduleCalendar
+- [x] Tạo Modal/Drawer CRUD danh mục trực tiếp trên trang Settings hoặc Dashboard sidebar
+- [x] Danh sách danh mục hiện có: hiển thị icon + tên + màu + nút sửa/xóa
+- [x] Form tạo danh mục mới: nhập tên, chọn màu (color picker), chọn emoji icon
+- [x] Bảo vệ danh mục `isSystem = true` — không cho xóa
+- [x] Tích hợp danh mục tự tạo vào filter panel trên ScheduleCalendar
 
 **Files liên quan:**
 - Backend: `categoryController.ts`, `categoryRoutes.ts`, `Category.ts` (đã có đầy đủ)

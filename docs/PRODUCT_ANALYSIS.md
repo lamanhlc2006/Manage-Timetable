@@ -252,7 +252,7 @@ Schedule Model mở rộng:
 | **Toggle hiển thị** | Bật/tắt hiển thị từng danh mục trên lịch (sidebar checkbox) | ❌ Chưa triển khai |
 | **Bộ lọc nâng cao** | Kết hợp category + tags + priority + date range | ✅ Đã có (category + priority filter) |
 | **Gán icon/emoji** | 📚 Học tập, 💼 Công việc, 🏃 Sức khỏe, 🎮 Giải trí | ✅ Backend hỗ trợ icon field |
-| **Tự tạo danh mục** | User tự thêm category mới với tên + màu + icon | ⚠️ Backend API đã có, Frontend UI chưa có |
+| **Tự tạo danh mục** | User tự thêm category mới với tên + màu + icon | ✅ Đã hoàn thành (CRUD Category UI + integration) |
 | **Phân tích theo category** | Thống kê thời gian phân bổ: bao nhiêu % cho Học tập, Công việc... | ✅ Analytics Pie chart |
 
 ---

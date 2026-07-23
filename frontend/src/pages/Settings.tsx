@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Tabs, message, Typography } from 'antd';
-import { UserOutlined, LockOutlined, SaveOutlined, KeyOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Form, Input, Button, Tabs, message, Typography, Table, Space, Tag, Popconfirm, Modal, ColorPicker, Tooltip } from 'antd';
+import { UserOutlined, LockOutlined, SaveOutlined, KeyOutlined, FolderOpenOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { updateProfile, changePassword } from '../services/userService';
+import { fetchCategories, createCategory, updateCategory, deleteCategory, CategoryItem } from '../services/categoryService';
 
 const { Title, Paragraph } = Typography;
 
@@ -60,6 +61,175 @@ export const Settings: React.FC = () => {
       setPasswordLoading(false);
     }
   };
+
+  // Category CRUD states
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [isCatModalVisible, setIsCatModalVisible] = useState(false);
+  const [editingCat, setEditingCat] = useState<CategoryItem | null>(null);
+  const [catFormLoading, setCatFormLoading] = useState(false);
+  const [categoryForm] = Form.useForm();
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const list = await fetchCategories();
+      setCategories(list);
+    } catch (err: any) {
+      console.error('Error loading categories:', err);
+      message.error('Không thể tải danh sách danh mục.');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const handleDeleteCat = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      message.success('Xóa danh mục thành công!');
+      loadCategories();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.response?.data?.message || 'Không thể xóa danh mục.');
+    }
+  };
+
+  const handleOpenCreateCat = () => {
+    setEditingCat(null);
+    categoryForm.resetFields();
+    categoryForm.setFieldsValue({
+      name: '',
+      icon: '📌',
+      color: '#1890ff',
+    });
+    setIsCatModalVisible(true);
+  };
+
+  const handleOpenEditCat = (cat: CategoryItem) => {
+    setEditingCat(cat);
+    categoryForm.setFieldsValue({
+      name: cat.name,
+      icon: cat.icon || '📌',
+      color: cat.color,
+    });
+    setIsCatModalVisible(true);
+  };
+
+  const handleCategoryFormSubmit = async (values: any) => {
+    setCatFormLoading(true);
+    try {
+      const color = typeof values.color === 'string' ? values.color : (values.color?.toHexString ? values.color.toHexString() : '#1890ff');
+      const payload = {
+        name: values.name.trim(),
+        icon: values.icon.trim(),
+        color,
+      };
+
+      if (editingCat) {
+        await updateCategory(editingCat._id, payload);
+        message.success('Cập nhật danh mục thành công!');
+      } else {
+        await createCategory(payload);
+        message.success('Tạo danh mục mới thành công!');
+      }
+      setIsCatModalVisible(false);
+      loadCategories();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.response?.data?.message || 'Đã xảy ra lỗi khi lưu danh mục.');
+    } finally {
+      setCatFormLoading(false);
+    }
+  };
+
+  const presetEmojis = ['📚', '💼', '👤', '🏃', '🎮', '🚀', '💡', '🔔', '🛒', '🍕', '✈️', '💵', '📌', '🎉', '❤️'];
+
+  const categoryColumns = [
+    {
+      title: 'Biểu tượng',
+      dataIndex: 'icon',
+      key: 'icon',
+      width: 90,
+      align: 'center' as const,
+      render: (icon: string) => <span style={{ fontSize: '20px' }}>{icon || '📌'}</span>,
+    },
+    {
+      title: 'Tên danh mục',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string, record: CategoryItem) => (
+        <Space>
+          <span style={{ fontWeight: 600 }}>{name}</span>
+          {record.isSystem && <Tag color="default" style={{ borderRadius: '4px' }}>Hệ thống</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Màu hiển thị',
+      dataIndex: 'color',
+      key: 'color',
+      width: 130,
+      render: (color: string) => (
+        <Space>
+          <span
+            style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: color,
+              display: 'inline-block',
+              boxShadow: '0 0 4px rgba(0,0,0,0.15)',
+            }}
+          />
+          <code style={{ fontSize: '12px' }}>{color.toUpperCase()}</code>
+        </Space>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 120,
+      align: 'right' as const,
+      render: (_: any, record: CategoryItem) => {
+        if (record.isSystem) {
+          return (
+            <Tooltip title="Danh mục hệ thống không được sửa/xóa">
+              <Tag color="warning" bordered={false} style={{ margin: 0 }}>Cố định</Tag>
+            </Tooltip>
+          );
+        }
+        return (
+          <Space size="middle">
+            <Button
+              type="text"
+              icon={<EditOutlined style={{ color: '#1890ff' }} />}
+              onClick={() => handleOpenEditCat(record)}
+              style={{ padding: 0 }}
+            />
+            <Popconfirm
+              title="Xóa danh mục này?"
+              description="Các sự kiện đang dùng danh mục này sẽ giữ nguyên tên danh mục."
+              onConfirm={() => handleDeleteCat(record._id)}
+              okText="Xóa"
+              cancelText="Hủy"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                style={{ padding: 0 }}
+              />
+            </Popconfirm>
+          </Space>
+        );
+      },
+    },
+  ];
 
   const tabsItems = [
     {
@@ -182,6 +352,40 @@ export const Settings: React.FC = () => {
         </Form>
       ),
     },
+    {
+      key: 'categories',
+      label: (
+        <span>
+          <FolderOpenOutlined />
+          Quản lý danh mục
+        </span>
+      ),
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', marginTop: '8px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 600 }}>Danh sách danh mục</span>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreateCat}
+              style={{ borderRadius: '6px' }}
+            >
+              Thêm danh mục
+            </Button>
+          </div>
+          <Table
+            columns={categoryColumns}
+            dataSource={categories}
+            rowKey="_id"
+            loading={categoriesLoading}
+            pagination={false}
+            size="middle"
+            bordered
+            style={{ borderRadius: '8px', overflow: 'hidden' }}
+          />
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -204,6 +408,89 @@ export const Settings: React.FC = () => {
       >
         <Tabs defaultActiveKey="profile" items={tabsItems} />
       </Card>
+
+      {/* Category Edit/Create Modal */}
+      <Modal
+        title={editingCat ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
+        open={isCatModalVisible}
+        onCancel={() => setIsCatModalVisible(false)}
+        footer={null}
+        destroyOnClose
+        width={400}
+      >
+        <Form
+          form={categoryForm}
+          layout="vertical"
+          onFinish={handleCategoryFormSubmit}
+          size="large"
+          style={{ marginTop: '16px' }}
+        >
+          <Form.Item
+            name="name"
+            label="Tên danh mục"
+            rules={[
+              { required: true, message: 'Vui lòng nhập tên danh mục!' },
+              { max: 20, message: 'Tên danh mục tối đa 20 ký tự!' }
+            ]}
+          >
+            <Input placeholder="Giải trí, Sức khỏe, ..." style={{ borderRadius: '6px' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="icon"
+            label="Emoji / Biểu tượng"
+            rules={[{ required: true, message: 'Vui lòng chọn hoặc nhập biểu tượng!' }]}
+          >
+            <Input placeholder="Chọn bên dưới hoặc dán emoji..." style={{ borderRadius: '6px', fontSize: '18px' }} />
+          </Form.Item>
+
+          <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {presetEmojis.map((emoji) => (
+              <span
+                key={emoji}
+                style={{
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  padding: '4px 8px',
+                  border: '1px solid #f0f0f0',
+                  borderRadius: '4px',
+                  background: '#fafafa',
+                  transition: 'all 0.2s',
+                }}
+                onClick={() => categoryForm.setFieldsValue({ icon: emoji })}
+                className="preset-emoji-btn"
+              >
+                {emoji}
+              </span>
+            ))}
+          </div>
+
+          <Form.Item
+            name="color"
+            label="Màu hiển thị"
+            rules={[{ required: true, message: 'Vui lòng chọn màu sắc!' }]}
+          >
+            <ColorPicker showText />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right', marginTop: '24px' }}>
+            <Space>
+              <Button onClick={() => setIsCatModalVisible(false)} style={{ borderRadius: '6px' }}>
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={catFormLoading}
+                icon={<SaveOutlined />}
+                style={{ borderRadius: '6px' }}
+              >
+                Lưu lại
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

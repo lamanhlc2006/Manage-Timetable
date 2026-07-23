@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space, Card, Tag, Tooltip, List } from 'antd';
+import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm } from 'antd';
 import dayjs from 'dayjs';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { ScheduleEvent, CreateScheduleInput, patchScheduleTime } from '../services/scheduleService';
 import {
   fetchCategories,
   createCategory,
+  updateCategory,
   deleteCategory,
   CategoryItem,
 } from '../services/categoryService';
@@ -65,6 +66,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#1890ff');
   const [newCatIcon, setNewCatIcon] = useState('📌');
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -85,19 +87,52 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       return;
     }
     try {
-      await createCategory({ name: newCatName.trim(), color: newCatColor, icon: newCatIcon });
-      message.success('Tạo danh mục mới thành công!');
+      if (editingCatId) {
+        await updateCategory(editingCatId, {
+          name: newCatName.trim(),
+          color: newCatColor,
+          icon: newCatIcon,
+        });
+        message.success('Cập nhật danh mục thành công!');
+        setEditingCatId(null);
+      } else {
+        await createCategory({
+          name: newCatName.trim(),
+          color: newCatColor,
+          icon: newCatIcon,
+        });
+        message.success('Tạo danh mục mới thành công!');
+      }
       setNewCatName('');
+      setNewCatColor('#1890ff');
+      setNewCatIcon('📌');
       loadCategories();
     } catch (err: any) {
-      message.error(err.response?.data?.message || 'Lỗi tạo danh mục');
+      message.error(err.response?.data?.message || 'Lỗi thao tác danh mục');
     }
+  };
+
+  const handleEditCategoryInitiate = (cat: CategoryItem) => {
+    setEditingCatId(cat._id);
+    setNewCatName(cat.name);
+    setNewCatColor(cat.color);
+    setNewCatIcon(cat.icon || '📌');
+  };
+
+  const handleCancelEditCategory = () => {
+    setEditingCatId(null);
+    setNewCatName('');
+    setNewCatColor('#1890ff');
+    setNewCatIcon('📌');
   };
 
   const handleDeleteCategorySubmit = async (id: string) => {
     try {
       await deleteCategory(id);
       message.success('Đã xóa danh mục!');
+      if (editingCatId === id) {
+        handleCancelEditCategory();
+      }
       loadCategories();
     } catch (err: any) {
       message.error(err.response?.data?.message || 'Không thể xóa danh mục');
@@ -887,34 +922,42 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       <Modal
         title="Quản lý Danh mục (Categories)"
         open={isCategoryModalVisible}
-        onCancel={() => setIsCategoryModalVisible(false)}
+        onCancel={() => {
+          setIsCategoryModalVisible(false);
+          handleCancelEditCategory();
+        }}
         footer={null}
         destroyOnClose
       >
-        <div style={{ marginBottom: '16px' }}>
-          <Space wrap>
+        <div style={{ marginBottom: '20px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f0f0f0' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#595959' }}>
+            {editingCatId ? 'Chỉnh sửa danh mục' : 'Tạo danh mục mới'}
+          </div>
+          <Space wrap size="small">
             <Input
               placeholder="Icon (VD: 🚀, 📚)"
               value={newCatIcon}
               onChange={(e) => setNewCatIcon(e.target.value)}
-              style={{ width: '80px' }}
+              style={{ width: '70px', textAlign: 'center' }}
             />
             <Input
-              placeholder="Tên danh mục mới"
+              placeholder="Tên danh mục..."
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              style={{ width: '180px' }}
+              style={{ width: '150px' }}
             />
-            <Select value={newCatColor} onChange={setNewCatColor} style={{ width: '120px' }}>
-              {colorOptions.map((opt) => (
-                <Option key={opt.value} value={opt.value}>
-                  <span style={{ color: opt.value }}>●</span> {opt.label.split(' ')[0]}
-                </Option>
-              ))}
-            </Select>
+            <ColorPicker
+              value={newCatColor}
+              onChange={(color) => setNewCatColor(color.toHexString())}
+            />
             <Button type="primary" onClick={handleCreateCategorySubmit}>
-              Thêm
+              {editingCatId ? 'Lưu' : 'Thêm'}
             </Button>
+            {editingCatId && (
+              <Button onClick={handleCancelEditCategory}>
+                Hủy
+              </Button>
+            )}
           </Space>
         </div>
 
@@ -929,18 +972,35 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   ? [
                       <Button
                         type="link"
-                        danger
                         size="small"
-                        onClick={() => handleDeleteCategorySubmit(cat._id)}
+                        onClick={() => handleEditCategoryInitiate(cat)}
+                        style={{ padding: 0 }}
                       >
-                        Xóa
+                        Sửa
                       </Button>,
+                      <Popconfirm
+                        title="Xóa danh mục này?"
+                        description="Các sự kiện dùng danh mục này sẽ giữ nguyên."
+                        onConfirm={() => handleDeleteCategorySubmit(cat._id)}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button
+                          type="link"
+                          danger
+                          size="small"
+                          style={{ padding: 0 }}
+                        >
+                          Xóa
+                        </Button>
+                      </Popconfirm>,
                     ]
                   : [<Tag color="default">Hệ thống</Tag>]
               }
             >
               <Space>
-                <span>{cat.icon || '📌'}</span>
+                <span style={{ fontSize: '18px' }}>{cat.icon || '📌'}</span>
                 <span
                   style={{
                     width: '12px',
@@ -950,7 +1010,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                     display: 'inline-block',
                   }}
                 />
-                <span>{cat.name}</span>
+                <span style={{ fontWeight: cat.isSystem ? 500 : 'normal' }}>{cat.name}</span>
               </Space>
             </List.Item>
           )}
