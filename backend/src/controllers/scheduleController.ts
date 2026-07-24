@@ -24,15 +24,7 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
     const rangeStart = startTime ? new Date(startTime as string) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const rangeEnd = endTime ? new Date(endTime as string) : new Date(Date.now() + 180 * 24 * 3600 * 1000);
 
-    const userScopeQuery: any = {};
-    if (req.user.role !== 'admin') {
-      userScopeQuery.createdBy = req.user._id;
-    } else if (creator) {
-      userScopeQuery.createdBy = creator;
-    }
-
     const dateQuery = {
-      ...userScopeQuery,
       $or: [
         {
           'recurrence.type': { $exists: true, $ne: 'none' },
@@ -54,7 +46,22 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
       ]
     };
 
-    const schedules = await Schedule.find(dateQuery).populate('createdBy', 'username email role');
+    const baseConditions: any[] = [dateQuery];
+
+    if (req.user.role !== 'admin') {
+      baseConditions.push({
+        $or: [
+          { createdBy: req.user._id },
+          { isPublic: true }
+        ]
+      });
+    } else if (creator) {
+      baseConditions.push({ createdBy: creator });
+    }
+
+    const finalQuery = { $and: baseConditions };
+
+    const schedules = await Schedule.find(finalQuery).populate('createdBy', 'username email role');
     const expanded = expandRecurringEvents(schedules, rangeStart, rangeEnd);
     res.json(expanded);
   } catch (error: any) {
@@ -193,7 +200,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     const isAdminUser = req.user.role === 'admin';
 
     if (!isOwner && !isAdminUser) {
-      res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa lịch trình này' });
+      res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa/xóa lịch trình này' });
       return;
     }
 
@@ -214,12 +221,13 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     const force = req.body.force === true || req.body.forceCreate === true;
 
     if (!force && req.user) {
+      const effectiveRecurrence = recurrence !== undefined ? recurrence : schedule.recurrence;
       const overlapping = await checkScheduleConflicts(
         req.user._id.toString(),
         start,
         end,
         targetId,
-        recurrence
+        effectiveRecurrence
       );
 
       if (overlapping.length > 0) {
@@ -398,7 +406,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
     const isAdminUser = req.user.role === 'admin';
 
     if (!isOwner && !isAdminUser) {
-      res.status(403).json({ message: 'Bạn không có quyền xóa lịch trình này' });
+      res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa/xóa lịch trình này' });
       return;
     }
 
@@ -491,40 +499,6 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
     const rangeStart = startTime ? new Date(startTime as string) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const rangeEnd = endTime ? new Date(endTime as string) : new Date(Date.now() + 180 * 24 * 3600 * 1000);
 
-    const query: any = {};
-
-    if (req.user.role !== 'admin') {
-      query.createdBy = req.user._id;
-    } else if (creator) {
-      query.createdBy = creator;
-    }
-
-    if (keyword) {
-      const sanitizedKeyword = escapeRegex(keyword as string);
-      query.$or = [
-        { title: { $regex: sanitizedKeyword, $options: 'i' } },
-        { description: { $regex: sanitizedKeyword, $options: 'i' } },
-      ];
-    }
-
-    if (categories) {
-      const categoryList = Array.isArray(categories)
-        ? categories
-        : (categories as string).split(',').map((c) => c.trim()).filter(Boolean);
-      if (categoryList.length > 0) {
-        query.category = { $in: categoryList };
-      }
-    }
-
-    if (priority) {
-      const priorityList = Array.isArray(priority)
-        ? priority
-        : (priority as string).split(',').map((p) => p.trim()).filter(Boolean);
-      if (priorityList.length > 0) {
-        query.priority = { $in: priorityList };
-      }
-    }
-
     const dateQuery = {
       $or: [
         {
@@ -547,15 +521,50 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
       ]
     };
 
-    const searchFilter = query.$or ? { $or: query.$or } : {};
-    delete query.$or;
-
     const baseConditions: any[] = [dateQuery];
-    if (Object.keys(query).length > 0) {
-      baseConditions.push(query);
+
+    if (req.user.role !== 'admin') {
+      baseConditions.push({
+        $or: [
+          { createdBy: req.user._id },
+          { isPublic: true }
+        ]
+      });
+    } else if (creator) {
+      baseConditions.push({ createdBy: creator });
     }
-    if (Object.keys(searchFilter).length > 0) {
-      baseConditions.push(searchFilter);
+
+    if (keyword) {
+      const sanitizedKeyword = escapeRegex(keyword as string);
+      baseConditions.push({
+        $or: [
+          { title: { $regex: sanitizedKeyword, $options: 'i' } },
+          { description: { $regex: sanitizedKeyword, $options: 'i' } },
+        ]
+      });
+    }
+
+    const filterQuery: any = {};
+    if (categories) {
+      const categoryList = Array.isArray(categories)
+        ? categories
+        : (categories as string).split(',').map((c) => c.trim()).filter(Boolean);
+      if (categoryList.length > 0) {
+        filterQuery.category = { $in: categoryList };
+      }
+    }
+
+    if (priority) {
+      const priorityList = Array.isArray(priority)
+        ? priority
+        : (priority as string).split(',').map((p) => p.trim()).filter(Boolean);
+      if (priorityList.length > 0) {
+        filterQuery.priority = { $in: priorityList };
+      }
+    }
+
+    if (Object.keys(filterQuery).length > 0) {
+      baseConditions.push(filterQuery);
     }
 
     const finalQuery = { $and: baseConditions };

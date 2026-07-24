@@ -391,7 +391,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
                   </Text>
                 </div>
               )}
-              width={220}
+              size={220}
               strokeWidth={8}
               strokeColor={mode === 'focus' ? '#ff4d4f' : '#52c41a'}
             />

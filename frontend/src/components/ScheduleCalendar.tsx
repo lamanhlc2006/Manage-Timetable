@@ -173,7 +173,6 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   };
 
   const handleOpenQuickAddModal = () => {
-    if (!isAdmin) return;
     setIsQuickAddModalVisible(true);
     const start = dayjs().add(1, 'hour').minute(0).second(0);
     const end = start.clone().add(1, 'hour');
@@ -262,7 +261,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // Keyboard Shortcuts (N: Quick Add, T: Today, D: Day, W: Week, M: Month, /: Focus Search, Esc: Close, ?: Help)
   useHotkeys('n', (e) => {
     e.preventDefault();
-    if (isAdmin && !isModalVisible && !isQuickAddModalVisible && !isCategoryModalVisible && !isHelpModalVisible) {
+    if (!isModalVisible && !isQuickAddModalVisible && !isCategoryModalVisible && !isHelpModalVisible) {
       handleOpenQuickAddModal();
     }
   }, { enableOnFormTags: false });
@@ -615,7 +614,6 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   // Open modal in Create mode
   const handleOpenCreateModal = (date?: dayjs.Dayjs) => {
-    if (!isAdmin) return;
     setModalMode('create');
     setSelectedEvent(null);
     setIsModalVisible(true);
@@ -669,7 +667,6 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   // Handle slot/date selection on FullCalendar
   const handleDateSelect = (selectInfo: any) => {
-    if (!isAdmin) return;
 
     let start = dayjs(selectInfo.start);
     let end = dayjs(selectInfo.end);
@@ -1063,20 +1060,25 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             {t('calendar.exportPdf')}
           </Button>
           {isAdmin && (
-            <>
-              <Button onClick={() => setIsCategoryModalVisible(true)} style={{ borderRadius: '6px' }}>
-                {t('calendar.manageCategories')}
-              </Button>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => handleOpenCreateModal()}
-                style={{ borderRadius: '6px' }}
-              >
-                {t('calendar.createEvent')}
-              </Button>
-            </>
+            <Button onClick={() => setIsCategoryModalVisible(true)} style={{ borderRadius: '6px' }}>
+              {t('calendar.manageCategories')}
+            </Button>
           )}
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => handleOpenCreateModal()}
+            style={{ borderRadius: '6px' }}
+          >
+            {t('calendar.createEvent')}
+          </Button>
+          <Button
+            icon={<PlusOutlined />}
+            onClick={handleOpenQuickAddModal}
+            style={{ borderRadius: '6px' }}
+          >
+            Quick Add
+          </Button>
         </Space>
       </div>
 
@@ -1101,10 +1103,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             }}
             allDaySlot={false}
             firstDay={1}
-            editable={isAdmin}
-            eventStartEditable={isAdmin}
-            eventDurationEditable={isAdmin}
-            selectable={isAdmin}
+            editable={true}
+            eventStartEditable={true}
+            eventDurationEditable={true}
+            selectable={true}
             selectMirror={true}
             dayMaxEvents={3}
             nowIndicator={true}
@@ -1364,26 +1366,31 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 Tập trung (Pomodoro)
               </Button>
 
-              {isAdmin && (
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={handleDeleteInitiate}
-                    style={{ borderRadius: '6px' }}
-                  >
-                    Xóa
-                  </Button>
-                  <Button
-                    type="primary"
-                    icon={<EditOutlined />}
-                    onClick={handleEditInitiate}
-                    style={{ borderRadius: '6px' }}
-                  >
-                    Chỉnh sửa
-                  </Button>
-                </div>
-              )}
+              {(() => {
+                const currentUserId = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u._id; } catch { return null; } })();
+                const eventCreatorId = (selectedEvent?.createdBy as any)?._id || selectedEvent?.createdBy;
+                const canModifyEvent = isAdmin || (currentUserId && eventCreatorId && currentUserId.toString() === eventCreatorId.toString());
+                return canModifyEvent ? (
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <Button
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={handleDeleteInitiate}
+                      style={{ borderRadius: '6px' }}
+                    >
+                      Xóa
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<EditOutlined />}
+                      onClick={handleEditInitiate}
+                      style={{ borderRadius: '6px' }}
+                    >
+                      Chỉnh sửa
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
         )}

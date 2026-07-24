@@ -33,6 +33,7 @@ export interface ISchedule extends Document {
   recurrence?: IRecurrence;
   isException?: boolean;
   parentEvent?: Types.ObjectId | ISchedule;
+  isPublic?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

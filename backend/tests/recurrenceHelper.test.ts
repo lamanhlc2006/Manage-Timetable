@@ -55,4 +55,21 @@ describe('recurrenceHelper - expandRecurringEvents', () => {
     const hasJuly4th = expanded.some((evt) => evt.startTime.includes('2026-07-04'));
     expect(hasJuly4th).toBe(false);
   });
+
+  it('should fast-forward and expand recurring events starting far in the past correctly', () => {
+    const oldDailyEvent: any = {
+      _id: 'oldDaily1',
+      title: 'Legacy Daily Sync',
+      startTime: '2020-01-01T09:00:00.000Z',
+      endTime: '2020-01-01T09:30:00.000Z',
+      recurrence: {
+        type: 'daily',
+        interval: 1,
+      },
+    };
+
+    const expanded = expandRecurringEvents([oldDailyEvent], rangeStart, rangeEnd);
+    expect(expanded.length).toBe(31);
+    expect(expanded[0].startTime).toContain('2026-07-01');
+  });
 });

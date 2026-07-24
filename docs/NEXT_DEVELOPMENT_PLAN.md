@@ -174,20 +174,34 @@
 
 ---
 
-### PHASE B: NÂNG CẤP LOGIC CỐT LÕI — Engine & Data Scope (Sprint 2)
+### PHASE B: LOGIC CỐT LÕI & UI/UX FLOW (Sprint 2)
 
-#### Task B1: Nâng cấp Conflict Detection cho Lịch Lặp (Sửa Lỗi 04)
+#### Task B1: Nâng cấp Conflict Detection cho Lịch Lặp (Sửa Lỗi 04) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**: Khi kiểm tra xung đột:
   1. Lấy tất cả sự kiện tĩnh VÀ sự kiện lặp (`recurrence.type != 'none'`) trong khoảng thời gian `[start, end]`.
-  2. Dùng `expandRecurringEvents` để giải nén các virtual instances.
+  2. Dùng `expandRecurringEvents` giải nén các virtual instances.
   3. Kiểm tra va chạm thời gian trên cả danh sách đã giải nén.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Files chỉnh sửa**: [`recurrenceHelper.ts`](file:///e:/Hoctap/manage-timetable/backend/src/config/recurrenceHelper.ts), [`scheduleController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/scheduleController.ts), [`recurrenceHelper.test.ts`](file:///e:/Hoctap/manage-timetable/backend/tests/recurrenceHelper.test.ts).
 
-#### Task B2: Chuẩn hóa Phân Vùng Dữ Liệu (Sửa Lỗi 05)
+#### Task B2: Chuẩn hóa Phân Vùng Dữ Liệu (Sửa Lỗi 05) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**:
   - Trong `getSchedules`: Mặc định chỉ trả về lịch do `req.user._id` tạo HOẶC lịch `isPublic: true`.
   - Admin vẫn có thể xem toàn bộ khi bật filter "Người tạo".
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Files chỉnh sửa**: [`Schedule.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/Schedule.ts), [`index.ts`](file:///e:/Hoctap/manage-timetable/backend/src/types/index.ts), [`scheduleController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/scheduleController.ts).
+
+#### Task B3: Thêm lịch trình trực tiếp từ Dashboard (Quick Add Event) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
+
+- **Mục tiêu**: Bổ sung luồng Core UX Flow cho phép người dùng tạo nhanh sự kiện trực tiếp ngay trên giao diện Dashboard mà không cần chuyển màn hình.
+- **Giải pháp**:
+  - **Quick Add Button trên Header**: Thêm nút `+ Tạo sự kiện` (Quick Add) trên Header của Dashboard để kích hoạt Modal tạo lịch.
+  - **Interactive Calendar Pre-fill**: Tích hợp sự kiện click/select trực tiếp vào ô ngày trên Calendar Widget của Dashboard để mở Modal tạo lịch và pre-fill (điền sẵn) ngày tương ứng.
+  - **API & Conflict Integration**: Gọi API `createSchedule` kết hợp chặt chẽ với cơ chế kiểm tra trùng lịch (Conflict Detection) và tự động refetch dữ liệu ngay khi tạo thành công.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Files chỉnh sửa**: [`ScheduleCalendar.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/ScheduleCalendar.tsx), [`Dashboard.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/pages/Dashboard.tsx).
 
 ---
 
@@ -417,9 +431,10 @@ interface IShareLink {
 ```
                        CẤP BÁCH (Urgent)                 BÌNH THƯỜNG (Normal)
              ┌──────────────────────────────────┬──────────────────────────────────┐
-  ẢNH HƯỞNG  │ 🔴 Task A1: Fix IDOR Auth Check  │ 🟡 Task B1: Conflict Engine Rec  │
-   LỚN       │ 🔴 Task A2: Fix Regex Injection  │ 🟡 Task B2: User Data Scope      │
- (High Imp.) │ 🔴 Task A3: Handle CastError     │ 🟢 Task D3: Refresh Token Rot.   │
+  ẢNH HƯỞNG  │ 🔴 Task B3: Quick Add Dashboard  │ 🟡 Task B1: Conflict Engine Rec  │
+   LỚN       │ 🔴 Task A1: Fix IDOR Auth Check  │ 🟡 Task B2: User Data Scope      │
+ (High Imp.) │ 🔴 Task A2: Fix Regex Injection  │ 🟢 Task D3: Refresh Token Rot.   │
+             │ 🔴 Task A3: Handle CastError     │                                  │
              ├──────────────────────────────────┼──────────────────────────────────┤
   ẢNH HƯỞNG  │                                  │ 🟡 Task C1: Complete i18n Keys   │
   TRUNG BÌNH │                                  │ 🟢 Task D1: Setup Jest/Supertest │
@@ -427,12 +442,19 @@ interface IShareLink {
              └──────────────────────────────────┴──────────────────────────────────┘
 ```
 
+### Thứ tự thực hiện khuyến nghị
+
+1. **Ưu tiên 1 (Cấp bách & UX Cốt lõi)**: Bổ sung luồng "Tạo lịch trực tiếp từ Dashboard" (Task B3).
+2. **Ưu tiên 2 (Hotfix Bảo mật & Sập Server)**: Hoàn tất các task bảo mật Phase A (A1: IDOR, A2: Regex Injection, A3: CastError).
+3. **Ưu tiên 3 (Logic & Conflict Engine)**: Đảm bảo kiểm tra trùng lịch (B1), phân vùng dữ liệu cá nhân (B2) hoạt động đồng bộ với việc tạo lịch từ Dashboard.
+4. **Ưu tiên 4 (Cơ sở hạ tầng & Nợ kỹ thuật)**: Tiếp tục thực hiện các Phase C, D (i18n, Testing, PWA Push Notification, Refresh Token Rotation).
+
 ### Nguyên tắc phát triển
 
-- **Security-first**: Ưu tiên Phase A (hotfix bảo mật) trước mọi tính năng mới
-- **Iterate fast**: Ship sửa lỗi sớm → thu thập feedback → cải thiện
-- **Test-driven**: Viết test cho business logic trước khi code feature
-- **User-centric**: Mọi quyết định kỹ thuật phải phục vụ trải nghiệm người dùng
+- **User-centric & Core UX First**: Đảm bảo luồng trải nghiệm tạo lịch từ Dashboard mượt mà, tiện lợi nhất cho người dùng.
+- **Security-first**: Ưu tiên xử lý triệt để các lỗ hổng bảo mật critical song song với luồng UX cốt lõi.
+- **Iterate fast**: Ship sửa lỗi sớm → thu thập feedback → cải thiện.
+- **Test-driven**: Viết test cho business logic và API contracts trước khi code feature.
 
 ---
 

@@ -58,8 +58,9 @@ export const Dashboard: React.FC = () => {
 
   const handleCreate = async (inputData: CreateScheduleInput & { force?: boolean }) => {
     try {
-      const newEvent = await createSchedule(inputData);
-      setSchedules((prev) => [...prev, newEvent]);
+      await createSchedule(inputData);
+      const data = await searchSchedules(filters);
+      setSchedules(data);
     } catch (err: any) {
       console.error(err);
       throw err; // Propagate error to calendar modal to show user error notifications

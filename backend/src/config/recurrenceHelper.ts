@@ -73,8 +73,17 @@ export const expandRecurringEvents = (
       const temp = new Date(templateStart);
       temp.setHours(0, 0, 0, 0);
 
+      // Fast-forward temp if templateStart is significantly before startLimit
+      if (temp.getTime() < startLimit) {
+        const weeksDiff = Math.floor((startLimit - temp.getTime()) / (interval * 7 * 24 * 3600 * 1000));
+        if (weeksDiff > 1) {
+          temp.setDate(temp.getDate() + (weeksDiff - 1) * 7 * interval);
+        }
+      }
+
       // Find the start of the week of the templateStart (shifting to Sunday)
-      const startOfTemplateWeek = new Date(temp);
+      const startOfTemplateWeek = new Date(templateStart);
+      startOfTemplateWeek.setHours(0, 0, 0, 0);
       const dayOfWeekVal = startOfTemplateWeek.getDay();
       startOfTemplateWeek.setDate(startOfTemplateWeek.getDate() - dayOfWeekVal);
 
@@ -120,6 +129,29 @@ export const expandRecurringEvents = (
     } else {
       // Daily, Monthly, or Weekly without daysOfWeek
       let temp = new Date(templateStart);
+
+      // Fast-forward temp if templateStart is significantly before startLimit
+      if (templateStart.getTime() < startLimit) {
+        if (type === 'daily') {
+          const daysDiff = Math.floor((startLimit - templateStart.getTime()) / (interval * 24 * 3600 * 1000));
+          if (daysDiff > 1) {
+            temp.setDate(temp.getDate() + (daysDiff - 1) * interval);
+          }
+        } else if (type === 'weekly') {
+          const weeksDiff = Math.floor((startLimit - templateStart.getTime()) / (interval * 7 * 24 * 3600 * 1000));
+          if (weeksDiff > 1) {
+            temp.setDate(temp.getDate() + (weeksDiff - 1) * 7 * interval);
+          }
+        } else if (type === 'monthly') {
+          const startLimitDate = new Date(startLimit);
+          const monthsDiff = (startLimitDate.getFullYear() - templateStart.getFullYear()) * 12 + (startLimitDate.getMonth() - templateStart.getMonth());
+          const jumpIntervals = Math.floor(monthsDiff / interval);
+          if (jumpIntervals > 1) {
+            temp.setMonth(temp.getMonth() + (jumpIntervals - 1) * interval);
+          }
+        }
+      }
+
       while (temp.getTime() <= recurrenceEndLimit && limit < maxIterations) {
         limit++;
 

@@ -74,6 +74,10 @@ const ScheduleSchema = new Schema<ISchedule>(
       type: Schema.Types.ObjectId,
       ref: 'Schedule',
     },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
