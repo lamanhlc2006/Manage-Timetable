@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, notification, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm, Empty, Spin } from 'antd';
+import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, notification, Space, Tag, Tooltip, List, ColorPicker, Popconfirm, Spin, Popover } from 'antd';
 import dayjs from 'dayjs';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { ScheduleEvent, CreateScheduleInput, patchScheduleTime } from '../services/scheduleService';
@@ -17,7 +17,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
-  ClearOutlined,
   DownloadOutlined,
   FilePdfOutlined,
   FilterOutlined,
@@ -917,18 +916,138 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     (priority.length > 0 ? 1 : 0) +
     (selectedCreator ? 1 : 0);
 
+  const filterPopoverContent = (
+    <div style={{ width: 280, padding: '4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '13px', color: '#1f2937' }}>
+          <FilterOutlined style={{ color: '#1890ff' }} />
+          <span>{t('calendar.filterTitle')}</span>
+        </div>
+        {activeFilterCount > 0 && (
+          <Button
+            type="link"
+            danger
+            size="small"
+            onClick={handleClearFilters}
+            style={{ padding: 0, fontSize: '12px' }}
+          >
+            {t('calendar.clearFilters')}
+          </Button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '4px' }}>{t('calendar.keyword')}</div>
+          <Input
+            ref={searchInputRef}
+            placeholder={t('calendar.keywordPlaceholder')}
+            value={keyword}
+            onChange={handleKeywordChange}
+            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+            allowClear
+            size="small"
+            style={{ borderRadius: '6px' }}
+          />
+        </div>
+
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '4px' }}>{t('calendar.category')}</div>
+          <Select
+            mode="multiple"
+            placeholder={t('calendar.category')}
+            value={categories}
+            onChange={handleCategoriesChange}
+            style={{ width: '100%' }}
+            size="small"
+            maxTagCount="responsive"
+            allowClear
+          >
+            {categoriesList.map((cat) => (
+              <Option key={cat._id} value={cat.name}>
+                {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
+              </Option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '4px' }}>{t('calendar.priority')}</div>
+          <Select
+            mode="multiple"
+            placeholder={t('calendar.priority')}
+            value={priority}
+            onChange={handlePriorityChange}
+            style={{ width: '100%' }}
+            size="small"
+            maxTagCount="responsive"
+            allowClear
+          >
+            <Option value="low">{t('calendar.priorityLow')}</Option>
+            <Option value="medium">{t('calendar.priorityMedium')}</Option>
+            <Option value="high">{t('calendar.priorityHigh')}</Option>
+          </Select>
+        </div>
+
+        {isAdmin && (
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '4px' }}>{t('calendar.creator')}</div>
+            <Select
+              placeholder={t('calendar.creator')}
+              value={selectedCreator}
+              onChange={handleCreatorChange}
+              style={{ width: '100%' }}
+              size="small"
+              allowClear
+            >
+              {usersList.map((user) => (
+                <Option key={user._id} value={user._id}>
+                  {user.username}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <style>{customStyles}</style>
 
-      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ margin: 0, fontWeight: 600 }}>{t('calendar.title')}</h2>
-          <p style={{ margin: 0, color: '#8c8c8c' }}>
-            {isAdmin ? t('calendar.subtitleAdmin') : t('calendar.subtitleUser')}
-          </p>
+      {/* Single-Row Consolidated Toolbar */}
+      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 700, fontSize: '20px', lineHeight: 1.2 }}>{t('calendar.title')}</h2>
+          </div>
+
+          {/* Compact Filter Popover Button */}
+          <Popover content={filterPopoverContent} trigger="click" placement="bottomLeft">
+            <Badge count={activeFilterCount} overflowCount={99} size="small">
+              <Button
+                icon={<FilterOutlined style={{ color: activeFilterCount > 0 ? '#1890ff' : undefined }} />}
+                style={{ borderRadius: '6px', fontWeight: 500 }}
+              >
+                {t('calendar.filterTitle')}
+              </Button>
+            </Badge>
+          </Popover>
+
+          {/* Quick Shortcuts Trigger Tag */}
+          <Tooltip title="Nhấn ? để mở danh sách phím tắt">
+            <Tag
+              color="blue"
+              style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '6px', margin: 0, fontSize: '12px' }}
+              onClick={() => setIsHelpModalVisible(true)}
+            >
+              <kbd>?</kbd> Phím tắt
+            </Tag>
+          </Tooltip>
         </div>
-        <Space wrap>
+
+        <Space wrap size="small">
           <Button
             icon={<DownloadOutlined />}
             onClick={handleExportIcs}
@@ -961,173 +1080,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         </Space>
       </div>
 
-      {/* Filter Bar */}
-      <Card
-        styles={{ body: { padding: 16 } }}
-        style={{
-          marginBottom: '20px',
-          borderRadius: '10px',
-          background: '#fafafa',
-          border: '1px solid #f0f0f0',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <FilterOutlined style={{ color: '#1890ff' }} />
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#595959' }}>{t('calendar.filterTitle')}</span>
-          {activeFilterCount > 0 && (
-            <Badge count={activeFilterCount} overflowCount={99} style={{ backgroundColor: '#1890ff' }} />
-          )}
-        </div>
-        <Space wrap size="middle" style={{ width: '100%', justifyContent: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>{t('calendar.keyword')}</div>
-            <Input
-              ref={searchInputRef}
-              placeholder={t('calendar.keywordPlaceholder')}
-              value={keyword}
-              onChange={handleKeywordChange}
-              prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-              style={{ width: '220px', borderRadius: '6px' }}
-              allowClear
-            />
-          </div>
-
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>{t('calendar.category')}</div>
-            <Select
-              mode="multiple"
-              placeholder={t('calendar.category')}
-              value={categories}
-              onChange={handleCategoriesChange}
-              style={{ width: '220px' }}
-              maxTagCount="responsive"
-              allowClear
-            >
-              {categoriesList.map((cat) => (
-                <Option key={cat._id} value={cat.name}>
-                  {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
-                </Option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>{t('calendar.priority')}</div>
-            <Select
-              mode="multiple"
-              placeholder={t('calendar.priority')}
-              value={priority}
-              onChange={handlePriorityChange}
-              style={{ width: '180px' }}
-              maxTagCount="responsive"
-              allowClear
-            >
-              <Option value="low">{t('calendar.priorityLow')}</Option>
-              <Option value="medium">{t('calendar.priorityMedium')}</Option>
-              <Option value="high">{t('calendar.priorityHigh')}</Option>
-            </Select>
-          </div>
-
-          {isAdmin && (
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#595959', marginBottom: '6px' }}>{t('calendar.creator')}</div>
-              <Select
-                placeholder={t('calendar.creator')}
-                value={selectedCreator}
-                onChange={handleCreatorChange}
-                style={{ width: '180px' }}
-                allowClear
-              >
-                {usersList.map((user) => (
-                  <Option key={user._id} value={user._id}>
-                    {user.username}
-                  </Option>
-                ))}
-              </Select>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', alignSelf: 'flex-end', height: '32px', marginBottom: '2px' }}>
-            <Button
-              type="text"
-              danger
-              icon={<ClearOutlined />}
-              onClick={handleClearFilters}
-              disabled={!keyword && categories.length === 0 && priority.length === 0 && !selectedCreator}
-              style={{ borderRadius: '6px', fontWeight: 500 }}
-            >
-              {t('calendar.clearFilters')}
-            </Button>
-          </div>
-        </Space>
-      </Card>
-
-      {/* Keyboard Shortcuts Hint Bar */}
-      <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 500 }}>Phím tắt:</span>
-        {isAdmin && (
-          <Tooltip title="Nhấn N để mở tạo lịch nhanh">
-            <Tag color="blue" style={{ cursor: 'pointer' }} onClick={handleOpenQuickAddModal}>
-              <kbd>N</kbd> Tạo nhanh
-            </Tag>
-          </Tooltip>
-        )}
-        <Tooltip title="Nhấn T để về ngày hôm nay">
-          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().today()}>
-            <kbd>T</kbd> Hôm nay
-          </Tag>
-        </Tooltip>
-        <Tooltip title="Nhấn D để chuyển sang xem theo Ngày">
-          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('timeGridDay')}>
-            <kbd>D</kbd> Ngày
-          </Tag>
-        </Tooltip>
-        <Tooltip title="Nhấn W để chuyển sang xem theo Tuần">
-          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('timeGridWeek')}>
-            <kbd>W</kbd> Tuần
-          </Tag>
-        </Tooltip>
-        <Tooltip title="Nhấn M để chuyển sang xem theo Tháng">
-          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => calendarRef.current?.getApi().changeView('dayGridMonth')}>
-            <kbd>M</kbd> Tháng
-          </Tag>
-        </Tooltip>
-        <Tooltip title="Nhấn / để focus tìm kiếm">
-          <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => searchInputRef.current?.focus()}>
-            <kbd>/</kbd> Tìm kiếm
-          </Tag>
-        </Tooltip>
-        <Tooltip title="Nhấn ? để hiển thị danh sách phím tắt">
-          <Tag color="warning" style={{ cursor: 'pointer' }} onClick={() => setIsHelpModalVisible(true)}>
-            <kbd>?</kbd> Trợ giúp
-          </Tag>
-        </Tooltip>
-      </div>
-
-      {/* FullCalendar Component */}
-      <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0', position: 'relative' }}>
+      {/* FullCalendar Component Container with Stabilized Height */}
+      <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0', position: 'relative', minHeight: '650px' }}>
         <Spin spinning={loading} tip={t('common.loading') || 'Đang tải...'}>
-          {schedules.length === 0 && !loading && (
-            <div style={{ padding: '24px 16px', textAlign: 'center', background: '#fafafa', borderRadius: '8px', marginBottom: '16px' }}>
-              <Empty
-                description={t('calendar.emptyState')}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              >
-                {isAdmin && (
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => handleOpenCreateModal()}
-                    style={{ marginTop: '8px', borderRadius: '6px' }}
-                  >
-                    {t('calendar.createEvent')}
-                  </Button>
-                )}
-              </Empty>
-            </div>
-          )}
-
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
@@ -1151,7 +1106,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             eventDurationEditable={isAdmin}
             selectable={isAdmin}
             selectMirror={true}
-            dayMaxEvents={true}
+            dayMaxEvents={3}
             nowIndicator={true}
             events={events}
             eventClick={handleEventClick}
