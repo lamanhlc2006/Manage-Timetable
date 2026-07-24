@@ -11,8 +11,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   let token;
 
   // Check if token exists in cookies
-  if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
+  if (req.cookies && (req.cookies.accessToken || req.cookies.token)) {
+    token = req.cookies.accessToken || req.cookies.token;
   }
   // Fallback to Authorization header
   else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {

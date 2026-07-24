@@ -69,7 +69,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
 
   // Link event state
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(initialEvent?.id);
-  const [customTitle, setCustomTitle] = useState<string>(initialEvent?.title || 'Tập trung học / làm việc');
+  const [customTitle, setCustomTitle] = useState<string>(initialEvent?.title || t('pomodoro.defaultTask'));
   const [category, setCategory] = useState<string>(initialEvent?.category || 'Học tập');
 
   // Audio & Notification toggles
@@ -158,8 +158,8 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
 
       // Browser Push Notification
       if (notifyEnabled && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('🎉 Hoàn thành phiên Focus!', {
-          body: `Tuyệt vời! Bạn đã hoàn thành ${minutesDone} phút tập trung cho "${customTitle}".`,
+        new Notification(t('pomodoro.focusCompleteTitle'), {
+          body: t('pomodoro.focusCompleteBody', { minutes: minutesDone, title: customTitle }),
           icon: '/favicon.ico',
         });
       }
@@ -173,7 +173,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
           durationMinutes: minutesDone,
           sessionType: 'focus',
         });
-        message.success('Đã lưu dữ liệu tập trung vào thống kê!');
+        message.success(t('pomodoro.savedToStats'));
         if (onSessionComplete) onSessionComplete();
       } catch (err) {
         console.error('Failed to log focus session:', err);
@@ -194,13 +194,13 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
       }
 
       if (notifyEnabled && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('☕ Hết giờ nghỉ!', {
-          body: 'Thời gian nghỉ đã kết thúc. Sẵn sàng cho phiên tập trung tiếp theo nào!',
+        new Notification(t('pomodoro.breakCompleteTitle'), {
+          body: t('pomodoro.breakCompleteBody'),
           icon: '/favicon.ico',
         });
       }
 
-      message.info('Đã hết giờ nghỉ! Hãy chuẩn bị cho phiên tập trung tiếp theo.');
+      message.info(t('pomodoro.breakCompleteMsg'));
       setMode('focus');
     }
   };

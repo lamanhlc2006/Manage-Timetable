@@ -53,6 +53,8 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+import { globalErrorHandler } from './middlewares/errorHandler';
+
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/schedules', scheduleLimiter, scheduleRoutes);
@@ -65,6 +67,9 @@ app.use('/api/focus-sessions', focusSessionRoutes);
 app.get('/', (req, res) => {
   res.send('Timetable Management API is running...');
 });
+
+// Global Error Handler Middleware
+app.use(globalErrorHandler);
 
 // Port configuration
 const PORT = process.env.PORT || 5000;

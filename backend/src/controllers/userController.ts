@@ -3,6 +3,8 @@ import { User } from '../models/User';
 import { Notification } from '../models/Notification';
 import { Schedule } from '../models/Schedule';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { escapeRegex } from '../utils/stringUtils';
+import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 
 /**
  * @desc    Get all users (paginated + search)
@@ -18,9 +20,10 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
     const query: any = {};
 
     if (search) {
+      const sanitizedSearch = escapeRegex(search);
       query.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+        { username: { $regex: sanitizedSearch, $options: 'i' } },
+        { email: { $regex: sanitizedSearch, $options: 'i' } },
       ];
     }
 
@@ -51,8 +54,7 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
       pages,
     });
   } catch (error: any) {
-    console.error('Get users error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Get users error');
   }
 };
 
@@ -66,6 +68,11 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
   const { role } = req.body;
 
   try {
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ message: 'Định dạng ID người dùng không hợp lệ' });
+      return;
+    }
+
     if (!['admin', 'user'].includes(role)) {
       res.status(400).json({ message: 'Invalid role value' });
       return;
@@ -94,8 +101,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
       isActive: user.isActive,
     });
   } catch (error: any) {
-    console.error('Update user role error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Update user role error');
   }
 };
 
@@ -109,6 +115,11 @@ export const toggleUserStatus = async (req: AuthRequest, res: Response): Promise
   const { isActive } = req.body;
 
   try {
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ message: 'Định dạng ID người dùng không hợp lệ' });
+      return;
+    }
+
     if (typeof isActive !== 'boolean') {
       res.status(400).json({ message: 'isActive must be a boolean' });
       return;
@@ -146,8 +157,7 @@ export const toggleUserStatus = async (req: AuthRequest, res: Response): Promise
       isActive: user.isActive,
     });
   } catch (error: any) {
-    console.error('Toggle user status error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Toggle user status error');
   }
 };
 
@@ -160,6 +170,11 @@ export const resetUserPassword = async (req: AuthRequest, res: Response): Promis
   const { id } = req.params;
 
   try {
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ message: 'Định dạng ID người dùng không hợp lệ' });
+      return;
+    }
+
     const user = await User.findById(id);
     if (!user) {
       res.status(404).json({ message: 'Không tìm thấy người dùng' });
@@ -180,7 +195,6 @@ export const resetUserPassword = async (req: AuthRequest, res: Response): Promis
 
     res.json({ message: 'Đặt lại mật khẩu thành công. Mật khẩu mặc định là: user123' });
   } catch (error: any) {
-    console.error('Reset user password error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Reset user password error');
   }
 };

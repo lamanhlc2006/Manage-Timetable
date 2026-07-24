@@ -24,7 +24,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { PomodoroModal } from './PomodoroModal';
 import { LanguageSelector } from './LanguageSelector';
-import { requestNotificationPermission } from '../utils/pwaHelper';
+import { requestNotificationPermission, subscribeUserToWebPush, unsubscribeUserFromWebPush } from '../utils/pwaHelper';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -46,7 +46,7 @@ const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
 export const CommonLayout: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -86,8 +86,18 @@ export const CommonLayout: React.FC = () => {
   }, []);
 
   const handleTogglePushNotifications = async () => {
-    const permission = await requestNotificationPermission();
-    setPushPermission(permission);
+    if (pushPermission === 'granted') {
+      await unsubscribeUserFromWebPush();
+      setPushPermission('default');
+    } else {
+      const success = await subscribeUserToWebPush();
+      if (success) {
+        setPushPermission('granted');
+      } else {
+        const permission = await requestNotificationPermission();
+        setPushPermission(permission);
+      }
+    }
   };
 
   // Retrieve user data from localStorage safely with useMemo
@@ -226,10 +236,10 @@ export const CommonLayout: React.FC = () => {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Text strong style={{ fontSize: '15px' }}>
-            Thông báo
+            {t('nav.notifications')}
           </Text>
           {unreadNotifications.length > 0 && (
-            <Tag color="red">{unreadNotifications.length} chưa đọc</Tag>
+            <Tag color="red">{unreadNotifications.length} {t('nav.unread')}</Tag>
           )}
         </div>
         {unreadNotifications.length > 0 && (
@@ -239,7 +249,7 @@ export const CommonLayout: React.FC = () => {
             onClick={handleMarkAllRead}
             style={{ padding: 0, fontSize: '12px' }}
           >
-            Đánh dấu tất cả đã đọc
+            {t('nav.markAllRead')}
           </Button>
         )}
       </div>
@@ -249,7 +259,7 @@ export const CommonLayout: React.FC = () => {
           <Spin size="small" />
         </div>
       ) : notifications.length === 0 ? (
-        <Empty description="Không có thông báo nào" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty description={t('nav.noNotifications')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <List
           itemLayout="horizontal"
@@ -268,7 +278,7 @@ export const CommonLayout: React.FC = () => {
               }}
               actions={[
                 !item.isRead ? (
-                  <Tooltip title="Đánh dấu đã đọc" key="read">
+                  <Tooltip title={t('nav.markAsRead')} key="read">
                     <Button
                       type="text"
                       size="small"
@@ -278,7 +288,7 @@ export const CommonLayout: React.FC = () => {
                     />
                   </Tooltip>
                 ) : null,
-                <Tooltip title="Xóa thông báo" key="delete">
+                <Tooltip title={t('nav.deleteNotification')} key="delete">
                   <Button
                     type="text"
                     size="small"
@@ -298,7 +308,7 @@ export const CommonLayout: React.FC = () => {
                       {item.title}
                     </Text>
                     <span style={{ fontSize: '11px', color: '#8c8c8c', marginLeft: '8px' }}>
-                      {dayjs(item.createdAt).locale('vi').fromNow()}
+                      {dayjs(item.createdAt).locale(i18n.language || 'vi').fromNow()}
                     </span>
                   </div>
                 }
@@ -311,7 +321,7 @@ export const CommonLayout: React.FC = () => {
                       {dayjs(item.createdAt).format('HH:mm - DD/MM/YYYY')}
                       {item.isRead && item.readAt && (
                         <span style={{ marginLeft: '8px', color: '#52c41a' }}>
-                          ✓ Đã đọc
+                          ✓ {t('nav.read')}
                         </span>
                       )}
                     </div>
@@ -322,6 +332,69 @@ export const CommonLayout: React.FC = () => {
           )}
         />
       )}
+    </div>
+  );
+
+  const mobileUserPopoverContent = (
+    <div style={{ width: 220, padding: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '10px', borderBottom: '1px solid #f0f0f0', marginBottom: '10px' }}>
+        <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} size="default" />
+        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Text strong style={{ fontSize: '14px' }} ellipsis>{user ? user.username : 'Guest'}</Text>
+          {user && (
+            <Tag color={user.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'uppercase', margin: '2px 0 0 0', width: 'fit-content', fontSize: '10px' }}>
+              {user.role}
+            </Tag>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: '12px', color: '#595959' }}>{t('nav.language') || 'Ngôn ngữ'}:</Text>
+          <LanguageSelector size="small" />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: '12px', color: '#595959' }}>{t('nav.theme') || 'Giao diện'}:</Text>
+          <Button
+            type="text"
+            size="small"
+            onClick={toggleTheme}
+            icon={theme === 'dark' ? <SunOutlined style={{ color: '#faad14' }} /> : <MoonOutlined style={{ color: '#555' }} />}
+            style={{ fontSize: '12px' }}
+          >
+            {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
+          </Button>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: '12px', color: '#595959' }}>Web Push:</Text>
+          <Button
+            type="text"
+            size="small"
+            onClick={handleTogglePushNotifications}
+            icon={<BellOutlined style={{ color: pushPermission === 'granted' ? '#52c41a' : '#555' }} />}
+            style={{ fontSize: '12px' }}
+          >
+            {pushPermission === 'granted' ? 'Bật' : 'Tắt'}
+          </Button>
+        </div>
+
+        <div style={{ paddingTop: '10px', borderTop: '1px solid #f0f0f0', marginTop: '2px' }}>
+          <Popconfirm
+            title={t('nav.logoutConfirm')}
+            onConfirm={handleLogout}
+            okText={t('nav.logout')}
+            cancelText={t('common.cancel')}
+            placement="bottomRight"
+          >
+            <Button type="primary" danger ghost icon={<LogoutOutlined />} block size="small" style={{ borderRadius: '6px' }}>
+              {t('nav.logout')}
+            </Button>
+          </Popconfirm>
+        </div>
+      </div>
     </div>
   );
 
@@ -418,7 +491,7 @@ export const CommonLayout: React.FC = () => {
           />
         </Sider>
       )}
-      <Layout>
+      <Layout style={{ overflowX: 'hidden' }}>
         <Header
           style={{
             background: theme === 'dark' ? '#1f1f1f' : '#fff',
@@ -429,11 +502,12 @@ export const CommonLayout: React.FC = () => {
             boxShadow: theme === 'dark' ? 'none' : '0 1px 4px rgba(0,21,41,.08)',
             borderBottom: theme === 'dark' ? '1px solid #303030' : 'none',
             zIndex: 9,
+            overflow: 'hidden',
           }}
         >
           {isMobile ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '16px', color: '#1890ff' }}>
-              <ScheduleOutlined style={{ fontSize: '22px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', fontSize: '15px', color: '#1890ff' }}>
+              <ScheduleOutlined style={{ fontSize: '20px' }} />
               <span>TIMETABLE</span>
             </div>
           ) : (
@@ -445,108 +519,150 @@ export const CommonLayout: React.FC = () => {
             />
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '16px' }}>
             {/* Network Offline Status Tag */}
             {!isOnline && (
-              <Tag color="warning" icon={<DisconnectOutlined />} style={{ margin: 0 }}>
-                {isMobile ? 'Offline' : 'Đang ngoại tuyến'}
+              <Tag color="warning" icon={<DisconnectOutlined />} style={{ margin: 0, padding: '0 6px', fontSize: '11px' }}>
+                {isMobile ? 'Offline' : t('common.offline')}
               </Tag>
             )}
 
-            {/* Web Push Notification Toggle Button */}
-            <Tooltip title={pushPermission === 'granted' ? 'Thông báo trình duyệt (Web Push) đã bật' : 'Cho phép Thông báo trình duyệt (Web Push)'}>
-              <Button
-                type="text"
-                shape="circle"
-                onClick={handleTogglePushNotifications}
-                icon={<BellOutlined style={{ fontSize: '18px', color: pushPermission === 'granted' ? '#52c41a' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555') }} />}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              />
-            </Tooltip>
+            {/* Mobile-optimized Header vs Desktop Header */}
+            {isMobile ? (
+              <>
+                {/* Pomodoro Focus Timer Button */}
+                <Tooltip title={t('nav.focusMode')}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    onClick={() => setPomodoroOpen(true)}
+                    icon={<FireOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}
+                  />
+                </Tooltip>
 
-            {/* Language Selector */}
-            <LanguageSelector size="small" />
+                {/* Notification Bell with Badge and Popover */}
+                <Popover
+                  content={notifPopoverContent}
+                  trigger="click"
+                  placement="bottomRight"
+                  onOpenChange={(open) => {
+                    if (open) loadNotifications();
+                  }}
+                >
+                  <Badge count={unreadNotifications.length} overflowCount={99} size="small">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<BellOutlined style={{ fontSize: '18px', color: theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555' }} />}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}
+                    />
+                  </Badge>
+                </Popover>
 
-            {/* Pomodoro Focus Timer Button */}
-            <Tooltip title={t('nav.focusMode')}>
-              <Button
-                type="text"
-                shape="circle"
-                onClick={() => setPomodoroOpen(true)}
-                icon={<FireOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              />
-            </Tooltip>
+                {/* User Menu Popover */}
+                <Popover content={mobileUserPopoverContent} trigger="click" placement="bottomRight">
+                  <div style={{ cursor: 'pointer', padding: '2px' }}>
+                    <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} size="small" />
+                  </div>
+                </Popover>
+              </>
+            ) : (
+              <>
+                {/* Web Push Notification Toggle Button */}
+                <Tooltip title={pushPermission === 'granted' ? t('nav.webPushEnabled') : t('nav.enableWebPush')}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    onClick={handleTogglePushNotifications}
+                    icon={<BellOutlined style={{ fontSize: '18px', color: pushPermission === 'granted' ? '#52c41a' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555') }} />}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  />
+                </Tooltip>
 
-            {/* Theme Toggle Button */}
-            <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}>
-              <Button
-                type="text"
-                shape="circle"
-                onClick={toggleTheme}
-                icon={theme === 'dark' ? <SunOutlined style={{ fontSize: '18px', color: '#faad14' }} /> : <MoonOutlined style={{ fontSize: '18px', color: '#555' }} />}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              />
-            </Tooltip>
+                {/* Language Selector */}
+                <LanguageSelector size="small" />
 
-            {/* Notification Bell with Badge and Popover */}
-            <Popover
-              content={notifPopoverContent}
-              trigger="click"
-              placement="bottomRight"
-              onOpenChange={(open) => {
-                if (open) loadNotifications();
-              }}
-            >
-              <Badge count={unreadNotifications.length} overflowCount={99} size="small">
-                <Button
-                  type="text"
-                  shape="circle"
-                  icon={<BellOutlined style={{ fontSize: '18px', color: theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555' }} />}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                />
-              </Badge>
-            </Popover>
+                {/* Pomodoro Focus Timer Button */}
+                <Tooltip title={t('nav.focusMode')}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    onClick={() => setPomodoroOpen(true)}
+                    icon={<FireOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  />
+                </Tooltip>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
-              {!isMobile && (
-                <span style={{ fontWeight: 500, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : '#333' }}>
-                  {user ? user.username : 'Guest'}
-                </span>
-              )}
-              {user && (
-                <Tag color={user.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'uppercase', margin: 0 }}>
-                  {user.role}
-                </Tag>
-              )}
-            </div>
+                {/* Theme Toggle Button */}
+                <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    onClick={toggleTheme}
+                    icon={theme === 'dark' ? <SunOutlined style={{ fontSize: '18px', color: '#faad14' }} /> : <MoonOutlined style={{ fontSize: '18px', color: '#555' }} />}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  />
+                </Tooltip>
 
-            <Popconfirm
-              title={t('nav.logoutConfirm')}
-              onConfirm={handleLogout}
-              okText={t('nav.logout')}
-              cancelText={t('common.cancel')}
-              placement="bottomRight"
-            >
-              <Button
-                type="primary"
-                danger
-                ghost
-                icon={<LogoutOutlined />}
-                size={isMobile ? 'small' : 'middle'}
-                style={{ borderRadius: '6px' }}
-              >
-                {!isMobile && t('nav.logout')}
-              </Button>
-            </Popconfirm>
+                {/* Notification Bell with Badge and Popover */}
+                <Popover
+                  content={notifPopoverContent}
+                  trigger="click"
+                  placement="bottomRight"
+                  onOpenChange={(open) => {
+                    if (open) loadNotifications();
+                  }}
+                >
+                  <Badge count={unreadNotifications.length} overflowCount={99} size="small">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<BellOutlined style={{ fontSize: '18px', color: theme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : '#555' }} />}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    />
+                  </Badge>
+                </Popover>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} size="default" />
+                  <span style={{ fontWeight: 500, color: theme === 'dark' ? 'rgba(255, 255, 255, 0.85)' : '#333' }}>
+                    {user ? user.username : 'Guest'}
+                  </span>
+                  {user && (
+                    <Tag color={user.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'uppercase', margin: 0 }}>
+                      {user.role}
+                    </Tag>
+                  )}
+                </div>
+
+                <Popconfirm
+                  title={t('nav.logoutConfirm')}
+                  onConfirm={handleLogout}
+                  okText={t('nav.logout')}
+                  cancelText={t('common.cancel')}
+                  placement="bottomRight"
+                >
+                  <Button
+                    type="primary"
+                    danger
+                    ghost
+                    icon={<LogoutOutlined />}
+                    size="middle"
+                    style={{ borderRadius: '6px' }}
+                  >
+                    {t('nav.logout')}
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
           </div>
         </Header>
         <Content
           style={{
-            margin: isMobile ? '12px' : '24px',
+            margin: isMobile ? '12px 8px' : '24px',
             padding: isMobile ? '12px' : '24px',
-            marginBottom: isMobile ? '72px' : '24px',
+            marginBottom: isMobile ? '76px' : '24px',
             background: theme === 'dark' ? '#1f1f1f' : '#fff',
             borderRadius: '12px',
             boxShadow: theme === 'dark' ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.05)',
@@ -567,50 +683,91 @@ export const CommonLayout: React.FC = () => {
             bottom: 0,
             left: 0,
             right: 0,
-            height: '60px',
+            width: '100%',
+            height: '62px',
             background: theme === 'dark' ? '#1f1f1f' : '#ffffff',
             borderTop: theme === 'dark' ? '1px solid #303030' : '1px solid #f0f0f0',
-            display: 'flex',
-            justifyContent: 'space-around',
+            display: 'grid',
+            gridTemplateColumns: user?.role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)',
             alignItems: 'center',
             zIndex: 1000,
-            boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.06)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
-          <Button
-            type={location.pathname === '/dashboard' ? 'primary' : 'text'}
-            icon={<CalendarOutlined style={{ fontSize: '18px' }} />}
+          <div
             onClick={() => navigate('/dashboard')}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              cursor: 'pointer',
+              color: location.pathname === '/dashboard' ? '#1890ff' : (theme === 'dark' ? '#a0a0a0' : '#8c8c8c'),
+              borderTop: location.pathname === '/dashboard' ? '2px solid #1890ff' : '2px solid transparent',
+              transition: 'all 0.2s',
+            }}
           >
-            Lịch
-          </Button>
-          <Button
-            type={location.pathname === '/analytics' ? 'primary' : 'text'}
-            icon={<BarChartOutlined style={{ fontSize: '18px' }} />}
+            <CalendarOutlined style={{ fontSize: '19px', marginBottom: '2px' }} />
+            <span style={{ fontSize: '11px', fontWeight: location.pathname === '/dashboard' ? 600 : 400 }}>{t('nav.timetable')}</span>
+          </div>
+
+          <div
             onClick={() => navigate('/analytics')}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              cursor: 'pointer',
+              color: location.pathname === '/analytics' ? '#1890ff' : (theme === 'dark' ? '#a0a0a0' : '#8c8c8c'),
+              borderTop: location.pathname === '/analytics' ? '2px solid #1890ff' : '2px solid transparent',
+              transition: 'all 0.2s',
+            }}
           >
-            Thống kê
-          </Button>
+            <BarChartOutlined style={{ fontSize: '19px', marginBottom: '2px' }} />
+            <span style={{ fontSize: '11px', fontWeight: location.pathname === '/analytics' ? 600 : 400 }}>{t('nav.analytics')}</span>
+          </div>
+
           {user && user.role === 'admin' && (
-            <Button
-              type={location.pathname === '/create-schedule' ? 'primary' : 'text'}
-              icon={<PlusCircleOutlined style={{ fontSize: '18px' }} />}
+            <div
               onClick={() => navigate('/create-schedule')}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                cursor: 'pointer',
+                color: location.pathname === '/create-schedule' ? '#1890ff' : (theme === 'dark' ? '#a0a0a0' : '#8c8c8c'),
+                borderTop: location.pathname === '/create-schedule' ? '2px solid #1890ff' : '2px solid transparent',
+                transition: 'all 0.2s',
+              }}
             >
-              Tạo mới
-            </Button>
+              <PlusCircleOutlined style={{ fontSize: '19px', marginBottom: '2px' }} />
+              <span style={{ fontSize: '11px', fontWeight: location.pathname === '/create-schedule' ? 600 : 400 }}>{t('nav.createSchedule')}</span>
+            </div>
           )}
-          <Button
-            type={location.pathname === '/settings' ? 'primary' : 'text'}
-            icon={<SettingOutlined style={{ fontSize: '18px' }} />}
+
+          <div
             onClick={() => navigate('/settings')}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 'auto', padding: '4px 8px', fontSize: '11px' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              cursor: 'pointer',
+              color: location.pathname === '/settings' ? '#1890ff' : (theme === 'dark' ? '#a0a0a0' : '#8c8c8c'),
+              borderTop: location.pathname === '/settings' ? '2px solid #1890ff' : '2px solid transparent',
+              transition: 'all 0.2s',
+            }}
           >
-            Cài đặt
-          </Button>
+            <SettingOutlined style={{ fontSize: '19px', marginBottom: '2px' }} />
+            <span style={{ fontSize: '11px', fontWeight: location.pathname === '/settings' ? 600 : 400 }}>{t('nav.settings')}</span>
+          </div>
         </div>
       )}
 

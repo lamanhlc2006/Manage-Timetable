@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import FocusSession from '../models/FocusSession';
+import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 
 interface AuthRequest extends Request {
   user?: {
@@ -21,6 +22,11 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
 
     const { scheduleId, title, category, durationMinutes, sessionType } = req.body;
 
+    if (scheduleId && !isValidObjectId(scheduleId)) {
+      res.status(400).json({ message: 'Định dạng ID lịch trình không hợp lệ' });
+      return;
+    }
+
     if (!durationMinutes || durationMinutes <= 0) {
       res.status(400).json({ message: 'Thời gian tập trung không hợp lệ' });
       return;
@@ -41,8 +47,7 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
       data: newSession,
     });
   } catch (error: any) {
-    console.error('Error logging focus session:', error);
-    res.status(500).json({ message: 'Lỗi máy chủ khi lưu phiên tập trung', error: error.message });
+    handleControllerError(res, error, 'Error logging focus session');
   }
 };
 
@@ -77,8 +82,7 @@ export const getFocusSessions = async (req: AuthRequest, res: Response): Promise
 
     res.status(200).json(sessions);
   } catch (error: any) {
-    console.error('Error fetching focus sessions:', error);
-    res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách tập trung', error: error.message });
+    handleControllerError(res, error, 'Error fetching focus sessions');
   }
 };
 
@@ -138,7 +142,6 @@ export const getFocusStats = async (req: AuthRequest, res: Response): Promise<vo
       dailyBreakdown,
     });
   } catch (error: any) {
-    console.error('Error computing focus stats:', error);
-    res.status(500).json({ message: 'Lỗi máy chủ khi tính toán thống kê tập trung', error: error.message });
+    handleControllerError(res, error, 'Error computing focus stats');
   }
 };

@@ -4,7 +4,9 @@ import { Schedule } from '../models/Schedule';
 import { Notification } from '../models/Notification';
 import { User } from '../models/User';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import { expandRecurringEvents } from '../config/recurrenceHelper';
+import { expandRecurringEvents, checkScheduleConflicts } from '../config/recurrenceHelper';
+import { escapeRegex } from '../utils/stringUtils';
+import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 
 /**
  * @desc    Get all schedules
@@ -13,11 +15,24 @@ import { expandRecurringEvents } from '../config/recurrenceHelper';
  */
 export const getSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { startTime, endTime } = req.query;
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const { startTime, endTime, creator } = req.query;
     const rangeStart = startTime ? new Date(startTime as string) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const rangeEnd = endTime ? new Date(endTime as string) : new Date(Date.now() + 180 * 24 * 3600 * 1000);
 
+    const userScopeQuery: any = {};
+    if (req.user.role !== 'admin') {
+      userScopeQuery.createdBy = req.user._id;
+    } else if (creator) {
+      userScopeQuery.createdBy = creator;
+    }
+
     const dateQuery = {
+      ...userScopeQuery,
       $or: [
         {
           'recurrence.type': { $exists: true, $ne: 'none' },
@@ -43,8 +58,7 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
     const expanded = expandRecurringEvents(schedules, rangeStart, rangeEnd);
     res.json(expanded);
   } catch (error: any) {
-    console.error('Get schedules error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Get schedules error');
   }
 };
 
@@ -80,11 +94,13 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
     const force = req.body.force === true || req.body.forceCreate === true;
 
     if (!force) {
-      const overlapping = await Schedule.find({
-        createdBy: req.user._id,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      });
+      const overlapping = await checkScheduleConflicts(
+        req.user._id.toString(),
+        start,
+        end,
+        undefined,
+        req.body.recurrence
+      );
 
       if (overlapping.length > 0) {
         res.status(409).json({
@@ -127,8 +143,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     res.status(201).json(populatedSchedule);
   } catch (error: any) {
-    console.error('Create schedule error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Create schedule error');
   }
 };
 
@@ -153,10 +168,32 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       isVirtualInstance = !isNaN(instanceTimestamp);
     }
 
+    if (!isValidObjectId(targetId)) {
+      res.status(400).json({ message: 'Định dạng ID lịch trình không hợp lệ' });
+      return;
+    }
+
     const schedule = await Schedule.findById(targetId);
 
     if (!schedule) {
       res.status(404).json({ message: 'Schedule event not found' });
+      return;
+    }
+
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const createdById = (schedule.createdBy as any)._id
+      ? (schedule.createdBy as any)._id.toString()
+      : schedule.createdBy.toString();
+
+    const isOwner = createdById === req.user._id.toString();
+    const isAdminUser = req.user.role === 'admin';
+
+    if (!isOwner && !isAdminUser) {
+      res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa lịch trình này' });
       return;
     }
 
@@ -177,12 +214,13 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     const force = req.body.force === true || req.body.forceCreate === true;
 
     if (!force && req.user) {
-      const overlapping = await Schedule.find({
-        _id: { $ne: targetId },
-        createdBy: req.user._id,
-        startTime: { $lt: end },
-        endTime: { $gt: start },
-      });
+      const overlapping = await checkScheduleConflicts(
+        req.user._id.toString(),
+        start,
+        end,
+        targetId,
+        recurrence
+      );
 
       if (overlapping.length > 0) {
         res.status(409).json({
@@ -312,8 +350,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     res.json(updatedSchedule);
   } catch (error: any) {
-    console.error('Update schedule error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Update schedule error');
   }
 };
 
@@ -336,10 +373,32 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
       instanceTimestamp = parseInt(parts[1], 10);
     }
 
+    if (!isValidObjectId(targetId)) {
+      res.status(400).json({ message: 'Định dạng ID lịch trình không hợp lệ' });
+      return;
+    }
+
     const schedule = await Schedule.findById(targetId);
 
     if (!schedule) {
       res.status(404).json({ message: 'Schedule event not found' });
+      return;
+    }
+
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const createdById = (schedule.createdBy as any)._id
+      ? (schedule.createdBy as any)._id.toString()
+      : schedule.createdBy.toString();
+
+    const isOwner = createdById === req.user._id.toString();
+    const isAdminUser = req.user.role === 'admin';
+
+    if (!isOwner && !isAdminUser) {
+      res.status(403).json({ message: 'Bạn không có quyền xóa lịch trình này' });
       return;
     }
 
@@ -411,8 +470,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     res.json({ message: 'Toàn bộ chuỗi lịch trình lặp đã được xóa thành công', id: targetId });
   } catch (error: any) {
-    console.error('Delete schedule error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Delete schedule error');
   }
 };
 
@@ -425,19 +483,27 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
   const { keyword, categories, priority, startTime, endTime, creator } = req.query;
 
   try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
     const rangeStart = startTime ? new Date(startTime as string) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const rangeEnd = endTime ? new Date(endTime as string) : new Date(Date.now() + 180 * 24 * 3600 * 1000);
 
     const query: any = {};
 
-    if (creator) {
+    if (req.user.role !== 'admin') {
+      query.createdBy = req.user._id;
+    } else if (creator) {
       query.createdBy = creator;
     }
 
     if (keyword) {
+      const sanitizedKeyword = escapeRegex(keyword as string);
       query.$or = [
-        { title: { $regex: keyword as string, $options: 'i' } },
-        { description: { $regex: keyword as string, $options: 'i' } },
+        { title: { $regex: sanitizedKeyword, $options: 'i' } },
+        { description: { $regex: sanitizedKeyword, $options: 'i' } },
       ];
     }
 
@@ -481,16 +547,24 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
       ]
     };
 
-    const finalQuery = query.$or
-      ? { $and: [ { $or: query.$or }, dateQuery ] }
-      : { ...query, ...dateQuery };
+    const searchFilter = query.$or ? { $or: query.$or } : {};
+    delete query.$or;
+
+    const baseConditions: any[] = [dateQuery];
+    if (Object.keys(query).length > 0) {
+      baseConditions.push(query);
+    }
+    if (Object.keys(searchFilter).length > 0) {
+      baseConditions.push(searchFilter);
+    }
+
+    const finalQuery = { $and: baseConditions };
 
     const schedules = await Schedule.find(finalQuery).populate('createdBy', 'username email role');
     const expanded = expandRecurringEvents(schedules, rangeStart, rangeEnd);
     res.json(expanded);
   } catch (error: any) {
-    console.error('Search schedules error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Search schedules error');
   }
 };
 
@@ -531,8 +605,7 @@ export const exportIcs = async (req: AuthRequest, res: Response): Promise<void> 
 
     res.end(calendar.toString());
   } catch (error: any) {
-    console.error('Export ICS error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Export ICS error');
   }
 };
 

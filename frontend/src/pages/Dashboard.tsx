@@ -99,6 +99,15 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handleFilterChange = React.useCallback((newFilters: typeof filters) => {
+    setFilters((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(newFilters)) {
+        return prev;
+      }
+      return newFilters;
+    });
+  }, []);
+
   return (
     <div>
       <Card variant="borderless" style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
@@ -110,7 +119,7 @@ export const Dashboard: React.FC = () => {
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onPatchTime={handlePatchTime}
-          onFilterChange={setFilters}
+          onFilterChange={handleFilterChange}
         />
       </Card>
     </div>

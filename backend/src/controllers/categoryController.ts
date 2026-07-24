@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { Category } from '../models/Category';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Học tập', color: '#1890ff', icon: '📚', isSystem: true },
@@ -32,8 +33,7 @@ export const getCategories = async (req: AuthRequest, res: Response): Promise<vo
 
     res.json(categories);
   } catch (error: any) {
-    console.error('Get categories error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Get categories error');
   }
 };
 
@@ -66,8 +66,7 @@ export const createCategory = async (req: AuthRequest, res: Response): Promise<v
 
     res.status(201).json(category);
   } catch (error: any) {
-    console.error('Create category error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Create category error');
   }
 };
 
@@ -81,6 +80,11 @@ export const updateCategory = async (req: AuthRequest, res: Response): Promise<v
   const { name, color, icon } = req.body;
 
   try {
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ message: 'Định dạng ID danh mục không hợp lệ' });
+      return;
+    }
+
     if (!req.user) {
       res.status(401).json({ message: 'User unauthorized' });
       return;
@@ -105,8 +109,7 @@ export const updateCategory = async (req: AuthRequest, res: Response): Promise<v
     await category.save();
     res.json(category);
   } catch (error: any) {
-    console.error('Update category error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Update category error');
   }
 };
 
@@ -119,6 +122,11 @@ export const deleteCategory = async (req: AuthRequest, res: Response): Promise<v
   const { id } = req.params;
 
   try {
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ message: 'Định dạng ID danh mục không hợp lệ' });
+      return;
+    }
+
     if (!req.user) {
       res.status(401).json({ message: 'User unauthorized' });
       return;
@@ -143,7 +151,6 @@ export const deleteCategory = async (req: AuthRequest, res: Response): Promise<v
     await Category.findByIdAndDelete(id);
     res.json({ message: 'Đã xóa danh mục thành công', id });
   } catch (error: any) {
-    console.error('Delete category error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Delete category error');
   }
 };

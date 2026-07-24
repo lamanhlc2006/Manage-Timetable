@@ -110,22 +110,26 @@ export const Settings: React.FC = () => {
 
   const handleOpenCreateCat = () => {
     setEditingCat(null);
-    catForm.resetFields();
-    catForm.setFieldsValue({
-      color: '#1890ff',
-      icon: '📌',
-    });
     setIsCatModalVisible(true);
+    setTimeout(() => {
+      catForm.resetFields();
+      catForm.setFieldsValue({
+        color: '#1890ff',
+        icon: '📌',
+      });
+    }, 0);
   };
 
   const handleOpenEditCat = (record: CategoryItem) => {
     setEditingCat(record);
-    catForm.setFieldsValue({
-      name: record.name,
-      color: record.color,
-      icon: record.icon || '📌',
-    });
     setIsCatModalVisible(true);
+    setTimeout(() => {
+      catForm.setFieldsValue({
+        name: record.name,
+        color: record.color,
+        icon: record.icon || '📌',
+      });
+    }, 0);
   };
 
   const handleDeleteCat = async (id: string) => {

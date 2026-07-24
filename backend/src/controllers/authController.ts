@@ -1,12 +1,50 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { RefreshToken } from '../models/RefreshToken';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { handleControllerError } from '../utils/errorHandler';
 
-// Helper function to generate JWT
-const generateToken = (id: string): string => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
-    expiresIn: '30d',
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
+
+// Helper function to generate Access Token (15 minutes expiration)
+const generateAccessToken = (id: string): string => {
+  return jwt.sign({ id }, JWT_SECRET, {
+    expiresIn: '15m',
+  });
+};
+
+// Helper function to generate Refresh Token (7 days expiration)
+const generateRefreshToken = (id: string): string => {
+  return jwt.sign({ id }, JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
+  });
+};
+
+// Helper function to set authentication cookies
+const setAuthCookies = (res: Response, accessToken: string, refreshToken: string): void => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  res.cookie('token', accessToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    maxAge: 15 * 60 * 1000, // 15 minutes
+  });
+
+  res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    maxAge: 15 * 60 * 1000, // 15 minutes
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
 
@@ -45,30 +83,35 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       username: cleanUsername,
       email: cleanEmail,
       password,
-      role: role || 'user', // Default to 'user' if not specified
+      role: role || 'user',
     });
 
     if (user) {
-      const token = generateToken(user._id.toString());
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      const accessToken = generateAccessToken(user._id.toString());
+      const refreshToken = generateRefreshToken(user._id.toString());
+      const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+
+      await RefreshToken.create({
+        token: refreshToken,
+        user: user._id,
+        expiresAt,
       });
+
+      setAuthCookies(res, accessToken, refreshToken);
+
       res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
-        token,
+        token: accessToken,
+        refreshToken,
       });
     } else {
       res.status(400).json({ message: 'Dữ liệu người dùng không hợp lệ.' });
     }
   } catch (error: any) {
-    console.error('Register error:', error);
-    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đăng ký.' });
+    handleControllerError(res, error, 'Register error');
   }
 };
 
@@ -92,14 +135,19 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         res.status(403).json({ message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.' });
         return;
       }
-      const token = generateToken(user._id.toString());
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+
+      const accessToken = generateAccessToken(user._id.toString());
+      const refreshToken = generateRefreshToken(user._id.toString());
+      const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+
+      await RefreshToken.create({
+        token: refreshToken,
+        user: user._id,
+        expiresAt,
       });
-      
+
+      setAuthCookies(res, accessToken, refreshToken);
+
       // Update lastLoginAt timestamp
       await User.findByIdAndUpdate(user._id, { lastLoginAt: new Date() });
 
@@ -108,14 +156,86 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         username: user.username,
         email: user.email,
         role: user.role,
-        token,
+        token: accessToken,
+        refreshToken,
       });
     } else {
       res.status(401).json({ message: 'Email hoặc mật khẩu không chính xác.' });
     }
   } catch (error: any) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đăng nhập.' });
+    handleControllerError(res, error, 'Login error');
+  }
+};
+
+/**
+ * @desc    Refresh access token using refresh token rotation
+ * @route   POST /api/auth/refresh
+ * @access  Public
+ */
+export const refreshAccessToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: 'No refresh token provided' });
+      return;
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    } catch (err) {
+      res.status(401).json({ message: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    const existingToken = await RefreshToken.findOne({ token: refreshToken });
+
+    if (!existingToken) {
+      res.status(401).json({ message: 'Refresh token not found in database' });
+      return;
+    }
+
+    // Reuse Detection Security: If a revoked token is used, invalidate all sessions for this user!
+    if (existingToken.isRevoked) {
+      console.warn(`[Security Alert] Revoked refresh token reuse detected for user ${existingToken.user}`);
+      await RefreshToken.updateMany({ user: existingToken.user }, { isRevoked: true });
+      res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
+      res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0) });
+      res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0) });
+      res.status(401).json({ message: 'Revoked refresh token reused. All sessions invalidated.' });
+      return;
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user || user.isActive === false) {
+      res.status(401).json({ message: 'User unauthorized or account suspended' });
+      return;
+    }
+
+    // Rotate tokens: Revoke old refresh token & create new pair
+    const newAccessToken = generateAccessToken(user._id.toString());
+    const newRefreshToken = generateRefreshToken(user._id.toString());
+    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+
+    existingToken.isRevoked = true;
+    existingToken.replacedByToken = newRefreshToken;
+    await existingToken.save();
+
+    await RefreshToken.create({
+      token: newRefreshToken,
+      user: user._id,
+      expiresAt,
+    });
+
+    setAuthCookies(res, newAccessToken, newRefreshToken);
+
+    res.json({
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error: any) {
+    handleControllerError(res, error, 'Refresh token error');
   }
 };
 
@@ -138,23 +258,30 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       role: req.user.role,
     });
   } catch (error: any) {
-    console.error('Profile error:', error);
-    res.status(500).json({ message: error.message || 'Server error' });
+    handleControllerError(res, error, 'Profile error');
   }
 };
 
 /**
- * @desc    Logout user and clear token cookie
+ * @desc    Logout user and clear token cookies
  * @route   POST /api/auth/logout
  * @access  Public
  */
 export const logoutUser = async (req: Request, res: Response): Promise<void> => {
-  res.cookie('token', '', {
-    httpOnly: true,
-    expires: new Date(0),
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
+  try {
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+    if (refreshToken) {
+      await RefreshToken.updateOne({ token: refreshToken }, { isRevoked: true });
+    }
+  } catch (e) {
+    console.error('Error revoking refresh token during logout:', e);
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.cookie('token', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
+  res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
+  res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
+
   res.json({ message: 'Logged out successfully' });
 };
 
@@ -213,8 +340,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       role: user.role,
     });
   } catch (error: any) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi cập nhật hồ sơ.' });
+    handleControllerError(res, error, 'Update profile error');
   }
 };
 
@@ -260,7 +386,6 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 
     res.json({ message: 'Đổi mật khẩu thành công.' });
   } catch (error: any) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi đổi mật khẩu.' });
+    handleControllerError(res, error, 'Change password error');
   }
 };

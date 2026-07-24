@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, notification, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm, Skeleton, Empty } from 'antd';
+import { Badge, Modal, Form, Input, DatePicker, Select, Button, message, notification, Space, Card, Tag, Tooltip, List, ColorPicker, Popconfirm, Empty, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { ScheduleEvent, CreateScheduleInput, patchScheduleTime } from '../services/scheduleService';
@@ -117,7 +117,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   const handleCreateCategorySubmit = async () => {
     if (!newCatName.trim()) {
-      message.error('Vui lòng nhập tên danh mục!');
+      message.error(t('calendar.categoryNameRequired'));
       return;
     }
     try {
@@ -127,7 +127,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           color: newCatColor,
           icon: newCatIcon,
         });
-        message.success('Cập nhật danh mục thành công!');
+        message.success(t('calendar.updateCategorySuccess'));
         setEditingCatId(null);
       } else {
         await createCategory({
@@ -135,14 +135,14 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           color: newCatColor,
           icon: newCatIcon,
         });
-        message.success('Tạo danh mục mới thành công!');
+        message.success(t('calendar.createCategorySuccess'));
       }
       setNewCatName('');
       setNewCatColor('#1890ff');
       setNewCatIcon('📌');
       loadCategories();
     } catch (err: any) {
-      message.error(err.response?.data?.message || 'Lỗi thao tác danh mục');
+      message.error(err.response?.data?.message || t('calendar.categoryActionError'));
     }
   };
 
@@ -163,13 +163,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const handleDeleteCategorySubmit = async (id: string) => {
     try {
       await deleteCategory(id);
-      message.success('Đã xóa danh mục!');
+      message.success(t('calendar.deleteCategorySuccess'));
       if (editingCatId === id) {
         handleCancelEditCategory();
       }
       loadCategories();
     } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể xóa danh mục');
+      message.error(err.response?.data?.message || t('calendar.deleteCategoryError'));
     }
   };
 
@@ -178,10 +178,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     setIsQuickAddModalVisible(true);
     const start = dayjs().add(1, 'hour').minute(0).second(0);
     const end = start.clone().add(1, 'hour');
-    quickAddForm.setFieldsValue({
-      title: '',
-      range: [start, end],
-    });
+    setTimeout(() => {
+      quickAddForm.setFieldsValue({
+        title: '',
+        range: [start, end],
+      });
+    }, 0);
   };
 
   const handleQuickAddSubmit = async () => {
@@ -190,7 +192,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       const [startDayjs, endDayjs] = values.range;
 
       if (startDayjs.isAfter(endDayjs) || startDayjs.isSame(endDayjs)) {
-        message.error('Thời gian bắt đầu phải trước thời gian kết thúc!');
+        message.error(t('calendar.startTimeBeforeEndTime'));
         return;
       }
 
@@ -207,9 +209,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
       const executeSave = async (forceOption = false) => {
         await onCreate({ ...inputData, force: forceOption });
-        message.success(forceOption ? 'Tạo nhanh lịch trình thành công (Bỏ qua trùng lặp)!' : 'Tạo nhanh lịch trình thành công!');
+        message.success(forceOption ? t('calendar.quickAddSuccessForce') : t('calendar.quickAddSuccess'));
         setIsQuickAddModalVisible(false);
-        quickAddForm.resetFields();
       };
 
       try {
@@ -218,10 +219,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         if (err.response && err.response.status === 409 && err.response.data && err.response.data.conflicts) {
           // Display conflict confirmation modal
           Modal.confirm({
-            title: 'Cảnh báo trùng lịch trình!',
+            title: t('calendar.conflictWarningTitle'),
             content: (
               <div>
-                <p>Phát hiện các lịch trình sau bị chồng lấp thời gian:</p>
+                <p>{t('calendar.conflictWarningSub')}</p>
                 <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
                   {err.response.data.conflicts.map((conflict: any) => (
                     <li key={conflict._id} style={{ marginBottom: '8px' }}>
@@ -233,13 +234,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   ))}
                 </ul>
                 <p style={{ marginTop: '12px', fontWeight: 500, color: '#ff4d4f' }}>
-                  Bạn có chắc chắn muốn xếp chồng và tiếp tục lưu không?
+                  {t('calendar.conflictWarningConfirm')}
                 </p>
               </div>
             ),
-            okText: 'Vẫn lưu (Force)',
+            okText: t('calendar.forceSave'),
             okType: 'danger',
-            cancelText: 'Hủy',
+            cancelText: t('common.cancel'),
             onOk: async () => {
               await executeSave(true);
             },
@@ -337,19 +338,21 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     setModalMode('edit');
     setRecurrenceEditMode(mode);
 
-    form.setFieldsValue({
-      title: selectedEvent.title,
-      description: selectedEvent.description || '',
-      color: selectedEvent.color,
-      range: [dayjs(selectedEvent.startTime), dayjs(selectedEvent.endTime)],
-      category: selectedEvent.category || 'Học tập',
-      tags: selectedEvent.tags || [],
-      priority: selectedEvent.priority || 'medium',
-      recurrenceType: selectedEvent.recurrence?.type || 'none',
-      recurrenceInterval: selectedEvent.recurrence?.interval || 1,
-      recurrenceDaysOfWeek: selectedEvent.recurrence?.daysOfWeek || [],
-      recurrenceEndDate: selectedEvent.recurrence?.endDate ? dayjs(selectedEvent.recurrence.endDate) : null,
-    });
+    setTimeout(() => {
+      form.setFieldsValue({
+        title: selectedEvent.title,
+        description: selectedEvent.description || '',
+        color: selectedEvent.color,
+        range: [dayjs(selectedEvent.startTime), dayjs(selectedEvent.endTime)],
+        category: selectedEvent.category || 'Học tập',
+        tags: selectedEvent.tags || [],
+        priority: selectedEvent.priority || 'medium',
+        recurrenceType: selectedEvent.recurrence?.type || 'none',
+        recurrenceInterval: selectedEvent.recurrence?.interval || 1,
+        recurrenceDaysOfWeek: selectedEvent.recurrence?.daysOfWeek || [],
+        recurrenceEndDate: selectedEvent.recurrence?.endDate ? dayjs(selectedEvent.recurrence.endDate) : null,
+      });
+    }, 0);
   };
 
   // Handle Form Submit (Create or Update)
@@ -359,7 +362,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       const [startDayjs, endDayjs] = values.range;
 
       if (startDayjs.isAfter(endDayjs) || startDayjs.isSame(endDayjs)) {
-        message.error('Thời gian bắt đầu phải trước thời gian kết thúc!');
+        message.error(t('calendar.startTimeBeforeEndTime'));
         return;
       }
 
@@ -393,7 +396,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       const executeSave = async (forceOption = false) => {
         if (modalMode === 'create') {
           await onCreate({ ...inputData, force: forceOption });
-          message.success(forceOption ? 'Tạo lịch trình thành công (Bỏ qua trùng lặp)!' : 'Tạo lịch trình thành công!');
+          message.success(forceOption ? t('calendar.createSuccessForce') : t('calendar.createSuccess'));
         } else if (modalMode === 'edit' && selectedEvent) {
           const payload = {
             ...inputData,
@@ -402,10 +405,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             instanceDate: (recurrenceEditMode === 'current' || recurrenceEditMode === 'future') ? selectedEvent.startTime : undefined,
           };
           await onUpdate(selectedEvent._id, payload);
-          message.success(forceOption ? 'Cập nhật lịch trình thành công (Bỏ qua trùng lặp)!' : 'Cập nhật lịch trình thành công!');
+          message.success(forceOption ? t('calendar.updateSuccessForce') : t('calendar.updateSuccess'));
         }
         setIsModalVisible(false);
-        form.resetFields();
       };
 
       try {
@@ -414,10 +416,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         if (err.response && err.response.status === 409 && err.response.data && err.response.data.conflicts) {
           // Display conflict confirmation modal
           Modal.confirm({
-            title: 'Cảnh báo trùng lịch trình!',
+            title: t('calendar.conflictWarningTitle'),
             content: (
               <div>
-                <p>Phát hiện các lịch trình sau bị chồng lấp thời gian:</p>
+                <p>{t('calendar.conflictWarningSub')}</p>
                 <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
                   {err.response.data.conflicts.map((conflict: any) => (
                     <li key={conflict._id} style={{ marginBottom: '8px' }}>
@@ -429,13 +431,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   ))}
                 </ul>
                 <p style={{ marginTop: '12px', fontWeight: 500, color: '#ff4d4f' }}>
-                  Bạn có chắc chắn muốn xếp chồng và tiếp tục lưu không?
+                  {t('calendar.conflictWarningConfirm')}
                 </p>
               </div>
             ),
-            okText: 'Vẫn lưu (Force)',
+            okText: t('calendar.forceSave'),
             okType: 'danger',
-            cancelText: 'Hủy',
+            cancelText: t('common.cancel'),
             onOk: async () => {
               await executeSave(true);
             },
@@ -501,14 +503,14 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       await onDelete(selectedEvent._id, mode);
       message.success(
         mode === 'current'
-          ? 'Đã xóa sự kiện hiện tại!'
+          ? t('calendar.deleteSuccessCurrent')
           : mode === 'future'
-          ? 'Đã xóa sự kiện này và các sự kiện sau đó!'
-          : 'Đã xóa toàn bộ chuỗi sự kiện lặp!'
+          ? t('calendar.deleteSuccessFuture')
+          : t('calendar.deleteSuccessAll')
       );
       setIsModalVisible(false);
     } catch (err) {
-      message.error('Không thể thực hiện tác vụ xóa.');
+      message.error(t('calendar.deleteError'));
     }
   };
 
@@ -622,19 +624,21 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     const initialStart = date ? date.clone().hour(9).minute(0).second(0) : dayjs().hour(9).minute(0).second(0);
     const initialEnd = date ? date.clone().hour(10).minute(0).second(0) : dayjs().hour(10).minute(0).second(0);
 
-    form.setFieldsValue({
-      title: '',
-      description: '',
-      color: '#1890ff',
-      range: [initialStart, initialEnd],
-      category: categoriesList[0]?.name || 'Học tập',
-      tags: [],
-      priority: 'medium',
-      recurrenceType: 'none',
-      recurrenceInterval: 1,
-      recurrenceDaysOfWeek: [],
-      recurrenceEndDate: null,
-    });
+    setTimeout(() => {
+      form.setFieldsValue({
+        title: '',
+        description: '',
+        color: '#1890ff',
+        range: [initialStart, initialEnd],
+        category: categoriesList[0]?.name || 'Học tập',
+        tags: [],
+        priority: 'medium',
+        recurrenceType: 'none',
+        recurrenceInterval: 1,
+        recurrenceDaysOfWeek: [],
+        recurrenceEndDate: null,
+      });
+    }, 0);
   };
 
   // Handle event click on FullCalendar
@@ -680,19 +684,21 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     setSelectedEvent(null);
     setIsModalVisible(true);
 
-    form.setFieldsValue({
-      title: '',
-      description: '',
-      color: '#1890ff',
-      range: [start, end],
-      category: categoriesList[0]?.name || 'Học tập',
-      tags: [],
-      priority: 'medium',
-      recurrenceType: 'none',
-      recurrenceInterval: 1,
-      recurrenceDaysOfWeek: [],
-      recurrenceEndDate: null,
-    });
+    setTimeout(() => {
+      form.setFieldsValue({
+        title: '',
+        description: '',
+        color: '#1890ff',
+        range: [start, end],
+        category: categoriesList[0]?.name || 'Học tập',
+        tags: [],
+        priority: 'medium',
+        recurrenceType: 'none',
+        recurrenceInterval: 1,
+        recurrenceDaysOfWeek: [],
+        recurrenceEndDate: null,
+      });
+    }, 0);
 
     selectInfo.view.calendar.unselect();
   };
@@ -701,9 +707,14 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const handleDatesSet = (dateInfo: any) => {
     const startIso = dateInfo.start.toISOString();
     const endIso = dateInfo.end.toISOString();
-    const range = { start: startIso, end: endIso };
-    setCurrentRange(range);
-    triggerFilterChange(keyword, categories, priority, range);
+
+    if (!currentRange || currentRange.start !== startIso || currentRange.end !== endIso) {
+      const range = { start: startIso, end: endIso };
+      setCurrentRange(range);
+      setTimeout(() => {
+        triggerFilterChange(keyword, categories, priority, range);
+      }, 0);
+    }
   };
 
   // Handle drag & drop and resize events on FullCalendar
@@ -1095,96 +1106,91 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* FullCalendar Component */}
-      <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0' }}>
-        {loading ? (
-          <div style={{ padding: '24px' }}>
-            <Skeleton active paragraph={{ rows: 10 }} />
-          </div>
-        ) : (
-          <>
-            {schedules.length === 0 && (
-              <div style={{ padding: '24px 16px', textAlign: 'center', background: '#fafafa', borderRadius: '8px', marginBottom: '16px' }}>
-                <Empty
-                  description="Chưa có sự kiện nào trong lịch trình"
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                >
-                  {isAdmin && (
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      onClick={() => handleOpenCreateModal()}
-                      style={{ marginTop: '8px', borderRadius: '6px' }}
-                    >
-                      Tạo sự kiện đầu tiên
-                    </Button>
-                  )}
-                </Empty>
-              </div>
-            )}
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-              initialView="dayGridMonth"
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
-              }}
-              buttonText={{
-                today: 'Hôm nay',
-                month: 'Tháng',
-                week: 'Tuần',
-                day: 'Ngày',
-                list: 'Danh sách',
-              }}
-          allDaySlot={false} // clean week/day schedules without all-day rows
-          firstDay={1} // Start week on Monday
-          editable={isAdmin}
-          eventStartEditable={isAdmin}
-          eventDurationEditable={isAdmin}
-          selectable={isAdmin}
-          selectMirror={true}
-          dayMaxEvents={true}
-          nowIndicator={true}
-          events={events}
-          eventClick={handleEventClick}
-          eventDrop={handleEventChange}
-          eventResize={handleEventChange}
-          select={handleDateSelect}
-          datesSet={handleDatesSet}
-          height="auto"
-        />
-          </>
-        )}
+      <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0', position: 'relative' }}>
+        <Spin spinning={loading} tip={t('common.loading') || 'Đang tải...'}>
+          {schedules.length === 0 && !loading && (
+            <div style={{ padding: '24px 16px', textAlign: 'center', background: '#fafafa', borderRadius: '8px', marginBottom: '16px' }}>
+              <Empty
+                description={t('calendar.emptyState')}
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              >
+                {isAdmin && (
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => handleOpenCreateModal()}
+                    style={{ marginTop: '8px', borderRadius: '6px' }}
+                  >
+                    {t('calendar.createEvent')}
+                  </Button>
+                )}
+              </Empty>
+            </div>
+          )}
+
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+            }}
+            buttonText={{
+              today: t('calendar.today'),
+              month: t('calendar.monthView'),
+              week: t('calendar.weekView'),
+              day: t('calendar.dayView'),
+              list: t('common.all'),
+            }}
+            allDaySlot={false}
+            firstDay={1}
+            editable={isAdmin}
+            eventStartEditable={isAdmin}
+            eventDurationEditable={isAdmin}
+            selectable={isAdmin}
+            selectMirror={true}
+            dayMaxEvents={true}
+            nowIndicator={true}
+            events={events}
+            eventClick={handleEventClick}
+            eventDrop={handleEventChange}
+            eventResize={handleEventChange}
+            select={handleDateSelect}
+            datesSet={handleDatesSet}
+            height="auto"
+          />
+        </Spin>
       </div>
 
       {/* Recurrence Choice Confirmation Dialog */}
       <Modal
-        title="Tác vụ lịch trình lặp lại"
+        title={t('calendar.recurrenceActionTitle')}
         open={isRecurrenceChoiceVisible}
         onCancel={() => setIsRecurrenceChoiceVisible(false)}
         footer={null}
         destroyOnHidden
       >
         <p style={{ marginBottom: '20px' }}>
-          Bạn muốn áp dụng tác vụ này cho sự kiện nào trong chuỗi lặp?
+          {t('calendar.recurrenceActionSub')}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Button onClick={() => handleRecurrenceChoiceAction('current')}>
-            Chỉ sự kiện này
+            {t('calendar.recurrenceActionCurrent')}
           </Button>
           <Button type="default" style={{ borderColor: '#1890ff', color: '#1890ff' }} onClick={() => handleRecurrenceChoiceAction('future')}>
-            Sự kiện này và các sự kiện sau đó
+            {t('calendar.recurrenceActionFuture')}
           </Button>
           <Button type="primary" onClick={() => handleRecurrenceChoiceAction('all')}>
-            Tất cả các sự kiện trong chuỗi lặp
+            {t('calendar.recurrenceActionAll')}
           </Button>
         </div>
       </Modal>
 
       {/* Category Management Modal */}
       <Modal
-        title="Quản lý Danh mục (Categories)"
+        title={t('calendar.manageCategories')}
         open={isCategoryModalVisible}
         onCancel={() => {
           setIsCategoryModalVisible(false);
@@ -1195,7 +1201,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       >
         <div style={{ marginBottom: '20px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f0f0f0' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#595959' }}>
-            {editingCatId ? 'Chỉnh sửa danh mục' : 'Tạo danh mục mới'}
+            {editingCatId ? t('settings.editCategory') || 'Chỉnh sửa danh mục' : t('settings.addCategory')}
           </div>
           <Space wrap size="small">
             <Input
@@ -1285,10 +1291,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       <Modal
         title={
           modalMode === 'view'
-            ? 'Chi tiết lịch trình'
+            ? t('calendar.eventDetails')
             : modalMode === 'create'
-            ? 'Tạo lịch trình mới'
-            : 'Chỉnh sửa lịch trình'
+            ? t('calendar.createEventTitle')
+            : t('calendar.editEventTitle')
         }
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
@@ -1428,7 +1434,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         )}
 
         {(modalMode === 'create' || modalMode === 'edit') && (
-          <Form form={form} layout="vertical" onFinish={handleFormSubmit}>
+          <Form form={form} preserve={false} layout="vertical" onFinish={handleFormSubmit}>
             <Form.Item
               name="title"
               label="Tiêu đề sự kiện"
@@ -1619,7 +1625,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '18px' }}>⚡</span>
-            <span>Tạo nhanh lịch trình</span>
+            <span>{t('calendar.quickAddTitle')}</span>
           </div>
         }
         open={isQuickAddModalVisible}
@@ -1630,6 +1636,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       >
         <Form
           form={quickAddForm}
+          preserve={false}
           layout="vertical"
           onFinish={handleQuickAddSubmit}
           size="large"
@@ -1674,7 +1681,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '18px' }}>⌨️</span>
-            <span>Phím tắt hệ thống</span>
+            <span>{t('calendar.shortcutsHelpTitle')}</span>
           </div>
         }
         open={isHelpModalVisible}

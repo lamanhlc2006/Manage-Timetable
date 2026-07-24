@@ -36,10 +36,15 @@ self.addEventListener('activate', (event) => {
 // Fetch Event - Caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (e) {
+    return;
+  }
 
-  // Skip non-GET requests for standard caching
-  if (request.method !== 'GET') {
+  // Skip non-GET requests and unsupported protocols (e.g. chrome-extension://, devtools://)
+  if (request.method !== 'GET' || (url.protocol !== 'http:' && url.protocol !== 'https:')) {
     return;
   }
 

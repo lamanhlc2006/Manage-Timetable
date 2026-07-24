@@ -1,4 +1,5 @@
 import { ISchedule } from '../types';
+import { Schedule } from '../models/Schedule';
 
 /**
  * Expands recurring schedules into virtual occurrences (instances) within a given date range.
@@ -145,4 +146,98 @@ export const expandRecurringEvents = (
   }
 
   return result;
+};
+
+/**
+ * Checks if a proposed schedule time slot or recurring series conflicts with any existing
+ * schedule (including recurring virtual instances) for a specific user.
+ */
+export const checkScheduleConflicts = async (
+  userId: string,
+  start: Date,
+  end: Date,
+  excludeId?: string,
+  proposedRecurrence?: any
+): Promise<any[]> => {
+  // Determine range window to fetch candidate schedules from database
+  let windowEnd = end;
+  if (proposedRecurrence && proposedRecurrence.type && proposedRecurrence.type !== 'none') {
+    const recEnd = proposedRecurrence.endDate ? new Date(proposedRecurrence.endDate) : null;
+    const maxWindowEnd = new Date(start.getTime() + 180 * 24 * 3600 * 1000); // Check up to 6 months
+    windowEnd = recEnd && recEnd < maxWindowEnd ? recEnd : maxWindowEnd;
+  }
+
+  const query: any = {
+    createdBy: userId,
+    $or: [
+      {
+        'recurrence.type': { $exists: true, $ne: 'none' },
+        startTime: { $lt: windowEnd },
+        $or: [
+          { 'recurrence.endDate': { $exists: false } },
+          { 'recurrence.endDate': null },
+          { 'recurrence.endDate': { $gte: start } },
+        ],
+      },
+      {
+        $or: [
+          { 'recurrence.type': { $exists: false } },
+          { 'recurrence.type': 'none' },
+        ],
+        startTime: { $lt: windowEnd },
+        endTime: { $gt: start },
+      },
+    ],
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+    query.parentEvent = { $ne: excludeId };
+  }
+
+  const candidateSchedules = await Schedule.find(query).populate('createdBy', 'username email role');
+  const expandedExistingEvents = expandRecurringEvents(candidateSchedules as any, start, windowEnd);
+
+  // If the proposed event itself is recurring, expand its proposed instances too
+  let proposedInstances: any[] = [];
+  if (proposedRecurrence && proposedRecurrence.type && proposedRecurrence.type !== 'none') {
+    const fakeProposedSchedule = {
+      _id: 'proposed_temp_id',
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      recurrence: proposedRecurrence,
+    };
+    proposedInstances = expandRecurringEvents([fakeProposedSchedule as any], start, windowEnd);
+  } else {
+    proposedInstances = [
+      {
+        _id: 'proposed_temp_id',
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      },
+    ];
+  }
+
+  // Cross-check proposed instances with existing expanded events
+  const conflictingMap = new Map<string, any>();
+
+  for (const pInst of proposedInstances) {
+    const pStart = new Date(pInst.startTime).getTime();
+    const pEnd = new Date(pInst.endTime).getTime();
+
+    for (const exEvt of expandedExistingEvents) {
+      const exStart = new Date(exEvt.startTime).getTime();
+      const exEnd = new Date(exEvt.endTime).getTime();
+
+      if (exStart < pEnd && exEnd > pStart) {
+        // Exclude self if parent match
+        const realId = exEvt.parentEvent ? exEvt.parentEvent.toString() : exEvt._id.toString();
+        if (!excludeId || (realId !== excludeId && exEvt._id.toString() !== excludeId)) {
+          conflictingMap.set(exEvt._id.toString(), exEvt);
+        }
+      }
+    }
+  }
+
+  return Array.from(conflictingMap.values());
 };
