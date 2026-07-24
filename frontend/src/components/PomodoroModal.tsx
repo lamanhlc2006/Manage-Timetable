@@ -519,10 +519,10 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
               }}
               style={{ width: 110 }}
               options={[
-                { value: 25, label: '25m Focus' },
-                { value: 30, label: '30m Focus' },
-                { value: 45, label: '45m Focus' },
-                { value: 60, label: '60m Focus' },
+                { value: 25, label: `25m ${t('pomodoro.focus')}` },
+                { value: 30, label: `30m ${t('pomodoro.focus')}` },
+                { value: 45, label: `45m ${t('pomodoro.focus')}` },
+                { value: 60, label: `60m ${t('pomodoro.focus')}` },
               ]}
             />
           </div>

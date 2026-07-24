@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
@@ -16,9 +16,7 @@ export default defineConfig({
     port: 3000, // Serve the frontend on port 3000
     host: 'localhost',
     hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 3000,
+      clientPort: 3000,
     },
     proxy: {
       '/api': {

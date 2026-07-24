@@ -1399,34 +1399,34 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <Form form={form} preserve={false} layout="vertical" onFinish={handleFormSubmit}>
             <Form.Item
               name="title"
-              label="Tiêu đề sự kiện"
-              rules={[{ required: true, message: 'Vui lòng điền tiêu đề lịch trình!' }]}
+              label={t('calendar.eventTitle')}
+              rules={[{ required: true, message: t('calendar.titleRequired') }]}
             >
-              <Input placeholder="Ví dụ: Lớp học ReactJS, Họp giao ban,..." />
+              <Input placeholder={t('calendar.eventTitlePlaceholder')} />
             </Form.Item>
 
-            <Form.Item name="description" label="Ghi chú / Mô tả">
-              <Input.TextArea rows={3} placeholder="Nội dung chi tiết của lịch trình..." />
+            <Form.Item name="description" label={t('calendar.notes')}>
+              <Input.TextArea rows={3} placeholder={t('calendar.notesPlaceholder')} />
             </Form.Item>
 
             <Form.Item
               name="category"
               label={
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                  <span>Danh mục</span>
+                  <span>{t('calendar.category')}</span>
                   <Button
                     type="link"
                     size="small"
                     onClick={() => setIsCategoryModalVisible(true)}
                     style={{ padding: 0 }}
                   >
-                    + Quản lý danh mục
+                    {t('calendar.manageCategoriesBtn')}
                   </Button>
                 </div>
               }
-              rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
+              rules={[{ required: true, message: t('calendar.categoryRequired') }]}
             >
-              <Select placeholder="Chọn danh mục sự kiện">
+              <Select placeholder={t('calendar.selectCategoryPlaceholder')}>
                 {categoriesList.map((cat) => (
                   <Option key={cat._id} value={cat.name}>
                     <Space>
@@ -1447,10 +1447,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               </Select>
             </Form.Item>
 
-            <Form.Item name="tags" label="Thẻ đánh dấu (Tags)">
+            <Form.Item name="tags" label={t('calendar.tags')}>
               <Select
                 mode="tags"
-                placeholder="Nhập thẻ đánh dấu và bấm Enter (ví dụ: #deadline, #exam)..."
+                placeholder={t('calendar.tagsPlaceholder')}
                 style={{ width: '100%' }}
                 tokenSeparators={[',', ' ']}
               />
@@ -1458,37 +1458,37 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
             <Form.Item
               name="priority"
-              label="Độ ưu tiên"
-              rules={[{ required: true, message: 'Vui lòng chọn độ ưu tiên!' }]}
+              label={t('calendar.priority')}
+              rules={[{ required: true, message: t('calendar.priorityRequired') }]}
             >
-              <Select placeholder="Chọn độ ưu tiên">
+              <Select placeholder={t('calendar.selectPriorityPlaceholder')}>
                 <Option value="low">
-                  <Badge status="default" text="Thấp" />
+                  <Badge status="default" text={t('calendar.priorityLow')} />
                 </Option>
                 <Option value="medium">
-                  <Badge status="warning" text="Trung bình" />
+                  <Badge status="warning" text={t('calendar.priorityMedium')} />
                 </Option>
                 <Option value="high">
-                  <Badge status="error" text="Cao" />
+                  <Badge status="error" text={t('calendar.priorityHigh')} />
                 </Option>
               </Select>
             </Form.Item>
 
             <Form.Item
               name="range"
-              label="Khung thời gian (Bắt đầu - Kết thúc)"
-              rules={[{ required: true, message: 'Vui lòng chọn thời gian!' }]}
+              label={t('calendar.timeRangeLabel')}
+              rules={[{ required: true, message: t('calendar.timeRequired') }]}
             >
               <DatePicker.RangePicker
                 showTime={{ format: 'HH:mm' }}
                 format="HH:mm YYYY-MM-DD"
                 style={{ width: '100%' }}
-                placeholder={['Bắt đầu', 'Kết thúc']}
+                placeholder={[t('calendar.start'), t('calendar.end')]}
               />
             </Form.Item>
 
-            <Form.Item name="color" label="Màu sắc đại diện">
-              <Select placeholder="Chọn màu sắc hiển thị trên lịch">
+            <Form.Item name="color" label={t('calendar.colorLabel')}>
+              <Select placeholder={t('calendar.selectColorPlaceholder')}>
                 {colorOptions.map((opt) => (
                   <Option key={opt.value} value={opt.value}>
                     <Space>
@@ -1508,13 +1508,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               </Select>
             </Form.Item>
 
-            <Form.Item name="recurrenceType" label="Lặp lại" initialValue="none">
+            <Form.Item name="recurrenceType" label={t('calendar.recurrenceTypeLabel')} initialValue="none">
               <Select>
-                <Option value="none">Không lặp lại</Option>
-                <Option value="daily">Hàng ngày</Option>
-                <Option value="weekly">Hàng tuần</Option>
-                <Option value="monthly">Hàng tháng</Option>
-                <Option value="custom">Tùy chỉnh (Custom)</Option>
+                <Option value="none">{t('calendar.recurrenceNone')}</Option>
+                <Option value="daily">{t('calendar.recurrenceDaily')}</Option>
+                <Option value="weekly">{t('calendar.recurrenceWeekly')}</Option>
+                <Option value="monthly">{t('calendar.recurrenceMonthly')}</Option>
+                <Option value="custom">{t('calendar.recurrenceCustom')}</Option>
               </Select>
             </Form.Item>
 
@@ -1537,31 +1537,31 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                         border: '1px solid #f0f0f0',
                       }}
                     >
-                      <Form.Item name="recurrenceInterval" label="Chu kỳ lặp" initialValue={1} style={{ marginBottom: '12px' }}>
+                      <Form.Item name="recurrenceInterval" label={t('calendar.recurrenceIntervalLabel')} initialValue={1} style={{ marginBottom: '12px' }}>
                         <Select>
-                          <Option value={1}>Mỗi lần lặp (1)</Option>
-                          <Option value={2}>Mỗi 2 lần lặp (2)</Option>
-                          <Option value={3}>Mỗi 3 lần lặp (3)</Option>
-                          <Option value={4}>Mỗi 4 lần lặp (4)</Option>
+                          <Option value={1}>{t('calendar.repeatEvery', { count: 1 })}</Option>
+                          <Option value={2}>{t('calendar.repeatEvery', { count: 2 })}</Option>
+                          <Option value={3}>{t('calendar.repeatEvery', { count: 3 })}</Option>
+                          <Option value={4}>{t('calendar.repeatEvery', { count: 4 })}</Option>
                         </Select>
                       </Form.Item>
 
                       {(type === 'weekly' || type === 'custom') && (
-                        <Form.Item name="recurrenceDaysOfWeek" label="Lặp vào các ngày" style={{ marginBottom: '12px' }}>
-                          <Select mode="multiple" placeholder="Chọn các ngày trong tuần" style={{ width: '100%' }}>
-                            <Option value={1}>Thứ 2</Option>
-                            <Option value={2}>Thứ 3</Option>
-                            <Option value={3}>Thứ 4</Option>
-                            <Option value={4}>Thứ 5</Option>
-                            <Option value={5}>Thứ 6</Option>
-                            <Option value={6}>Thứ 7</Option>
-                            <Option value={0}>Chủ Nhật</Option>
+                        <Form.Item name="recurrenceDaysOfWeek" label={t('calendar.recurrenceDaysOfWeekLabel')} style={{ marginBottom: '12px' }}>
+                          <Select mode="multiple" placeholder={t('calendar.selectDaysPlaceholder')} style={{ width: '100%' }}>
+                            <Option value={1}>{t('calendar.dayMon')}</Option>
+                            <Option value={2}>{t('calendar.dayTue')}</Option>
+                            <Option value={3}>{t('calendar.dayWed')}</Option>
+                            <Option value={4}>{t('calendar.dayThu')}</Option>
+                            <Option value={5}>{t('calendar.dayFri')}</Option>
+                            <Option value={6}>{t('calendar.daySat')}</Option>
+                            <Option value={0}>{t('calendar.daySun')}</Option>
                           </Select>
                         </Form.Item>
                       )}
 
-                      <Form.Item name="recurrenceEndDate" label="Ngày kết thúc lặp" style={{ marginBottom: 0 }}>
-                        <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} placeholder="Lặp vô tận" />
+                      <Form.Item name="recurrenceEndDate" label={t('calendar.recurrenceEndDateLabel')} style={{ marginBottom: 0 }}>
+                        <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} placeholder={t('calendar.forever')} />
                       </Form.Item>
                     </Space>
                   );
@@ -1572,9 +1572,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
             <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
               <Space>
-                <Button onClick={() => setIsModalVisible(false)}>Hủy</Button>
+                <Button onClick={() => setIsModalVisible(false)}>{t('common.cancel')}</Button>
                 <Button type="primary" htmlType="submit">
-                  {modalMode === 'create' ? 'Tạo mới' : 'Lưu thay đổi'}
+                  {modalMode === 'create' ? t('calendar.createNew') : t('calendar.saveChanges')}
                 </Button>
               </Space>
             </Form.Item>
@@ -1606,33 +1606,33 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         >
           <Form.Item
             name="title"
-            label="Tiêu đề sự kiện"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề sự kiện!' }]}
+            label={t('calendar.eventTitle')}
+            rules={[{ required: true, message: t('calendar.titleRequired') }]}
           >
-            <Input placeholder="Ví dụ: Học React, Tập thể dục..." autoFocus style={{ borderRadius: '6px' }} />
+            <Input placeholder={t('calendar.quickAddInputPlaceholder')} autoFocus style={{ borderRadius: '6px' }} />
           </Form.Item>
 
           <Form.Item
             name="range"
-            label="Thời gian (Bắt đầu - Kết thúc)"
-            rules={[{ required: true, message: 'Vui lòng chọn thời gian!' }]}
+            label={t('calendar.timeRangeLabel')}
+            rules={[{ required: true, message: t('calendar.timeRequired') }]}
           >
             <DatePicker.RangePicker
               showTime={{ format: 'HH:mm' }}
               format="HH:mm YYYY-MM-DD"
               style={{ width: '100%', borderRadius: '6px' }}
-              placeholder={['Bắt đầu', 'Kết thúc']}
+              placeholder={[t('calendar.start'), t('calendar.end')]}
             />
           </Form.Item>
 
           <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '20px', background: '#fafafa', padding: '8px 12px', borderRadius: '6px' }}>
-            💡 Mặc định sự kiện tạo nhanh sẽ có danh mục là <strong>{categoriesList[0]?.name || 'Học tập'}</strong>, mức ưu tiên là <strong>Trung bình</strong>. Nhấn <strong>Enter</strong> trong ô tiêu đề để lưu nhanh.
+            {t('calendar.quickAddHelp', { category: categoriesList[0]?.name || 'Học tập', priority: t('calendar.priorityMedium') })}
           </div>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
-              <Button onClick={() => setIsQuickAddModalVisible(false)} style={{ borderRadius: '6px' }}>Hủy</Button>
-              <Button type="primary" htmlType="submit" style={{ borderRadius: '6px' }}>Tạo mới</Button>
+              <Button onClick={() => setIsQuickAddModalVisible(false)} style={{ borderRadius: '6px' }}>{t('common.cancel')}</Button>
+              <Button type="primary" htmlType="submit" style={{ borderRadius: '6px' }}>{t('calendar.createNew')}</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -1654,7 +1654,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       >
         <div style={{ marginTop: '16px' }}>
           <p style={{ color: '#8c8c8c', marginBottom: '20px' }}>
-            Sử dụng phím tắt để thao tác và chuyển đổi các chế độ xem nhanh chóng. Các phím tắt sẽ tự động vô hiệu hóa khi bạn đang nhập liệu.
+            {t('calendar.shortcutsDesc')}
           </p>
           
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1664,56 +1664,56 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   <td style={{ padding: '12px 8px' }}>
                     <Tag color="blue"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>N</kbd></Tag>
                   </td>
-                  <td style={{ padding: '12px 8px', fontWeight: 500 }}>Tạo nhanh sự kiện mới (Quick Add)</td>
+                  <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutQuickAdd')}</td>
                 </tr>
               )}
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px', width: '80px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>T</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Nhảy về ngày hôm nay</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutToday')}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>D</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Ngày (Day View)</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutDayView')}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>W</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Tuần (Week View)</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutWeekView')}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>M</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Chuyển sang xem Tháng (Month View)</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutMonthView')}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>/</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Đưa con trỏ vào ô tìm kiếm từ khóa</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutFocusSearch')}</td>
               </tr>
               <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Esc</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Đóng modal / popup đang hiển thị</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutCloseModal')}</td>
               </tr>
               <tr>
                 <td style={{ padding: '12px 8px' }}>
                   <Tag color="warning"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>?</kbd> hoặc <kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Shift + /</kbd></Tag>
                 </td>
-                <td style={{ padding: '12px 8px', fontWeight: 500 }}>Mở bảng phím tắt này</td>
+                <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutOpenHelp')}</td>
               </tr>
             </tbody>
           </table>
           
           <div style={{ textAlign: 'right', marginTop: '24px' }}>
-            <Button type="primary" onClick={() => setIsHelpModalVisible(false)} style={{ borderRadius: '6px' }}>Đóng</Button>
+            <Button type="primary" onClick={() => setIsHelpModalVisible(false)} style={{ borderRadius: '6px' }}>{t('common.close')}</Button>
           </div>
         </div>
       </Modal>

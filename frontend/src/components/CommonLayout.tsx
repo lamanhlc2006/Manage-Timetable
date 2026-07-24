@@ -93,6 +93,11 @@ export const CommonLayout: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const lang = i18n.language || 'vi';
+    dayjs.locale(lang === 'en' ? 'en' : 'vi');
+  }, [i18n.language]);
+
   const handleTogglePushNotifications = async () => {
     if (pushPermission === 'granted') {
       await unsubscribeUserFromWebPush();
@@ -385,7 +390,7 @@ export const CommonLayout: React.FC = () => {
             icon={<BellOutlined style={{ color: pushPermission === 'granted' ? '#52c41a' : '#555' }} />}
             style={{ fontSize: '12px' }}
           >
-            {pushPermission === 'granted' ? 'Bật' : 'Tắt'}
+            {pushPermission === 'granted' ? t('nav.webPushOn') : t('nav.webPushOff')}
           </Button>
         </div>
 

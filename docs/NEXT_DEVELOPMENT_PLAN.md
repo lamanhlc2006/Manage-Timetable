@@ -26,7 +26,7 @@
 |---|---|---|
 | Phase 1 — MVP Enhancement | 🟢 **100%** | Hoàn thành toàn bộ |
 | Phase 2 — Should-Have | 🟢 **100%** | Hoàn thành toàn bộ |
-| Phase 3 — Nice-to-Have | 🟡 **~40%** | Dark Mode ✅, Settings ✅, Pomodoro ✅, i18n ✅, PWA 80% |
+| Phase 3 & Phase D — Tech Debt & Security | 🟢 **100%** | Dark Mode ✅, Settings ✅, Pomodoro ✅, i18n ✅, PWA Web Push ✅, Testing 100% ✅, Security & Refresh Token Rotation ✅ |
 
 ### Phân loại mức độ rủi ro (Risk Classification)
 
@@ -207,31 +207,44 @@
 
 ### PHASE C: CHUẨN HÓA UI/UX & ĐA NGÔN NGỮ (Sprint 3)
 
-#### Task C1: Quốc tế hóa toàn bộ chuỗi hardcoded (Sửa Lỗi 06)
+#### Task C1: Quốc tế hóa toàn bộ chuỗi hardcoded (Sửa Lỗi 06) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**:
-  1. Thêm các key vào `vi.json` và `en.json` (ví dụ: `conflictWarningTitle`, `startTimeBeforeEndTime`).
-  2. Thay thế toàn bộ chuỗi cứng trong `ScheduleCalendar.tsx`, `PomodoroModal.tsx`, `CommonLayout.tsx` bằng `t(...)`.
+  1. Thêm các key vào `vi.json` và `en.json` (ví dụ: `conflictWarningTitle`, `startTimeBeforeEndTime`, `webPushOn`, `webPushOff`, `shortcutsDesc`...).
+  2. Thay thế toàn bộ chuỗi cứng trong `ScheduleCalendar.tsx`, `PomodoroModal.tsx`, `CommonLayout.tsx` bằng hàm `t(...)`.
+  3. Đồng bộ hóa hiển thị thời gian tương đối (`fromNow()`) của `dayjs` theo ngôn ngữ được chọn.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Files chỉnh sửa**: [`vi.json`](file:///e:/Hoctap/manage-timetable/frontend/src/i18n/locales/vi.json), [`en.json`](file:///e:/Hoctap/manage-timetable/frontend/src/i18n/locales/en.json), [`ScheduleCalendar.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/ScheduleCalendar.tsx), [`PomodoroModal.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/PomodoroModal.tsx), [`CommonLayout.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/CommonLayout.tsx).
 
 ---
 
 ### PHASE D: NỢ KỸ THUẬT & TÍNH NĂNG NÂNG CAO (Sprint 4)
 
-#### Task D1: Thiết lập Automated Testing (Sửa Lỗi 07)
+#### Task D1: Thiết lập Automated Testing (Sửa Lỗi 07) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**:
-  1. Cài `Jest` + `Supertest` cho Backend — API Integration Tests cho Auth & Schedule CRUD.
-  2. Cài `@testing-library/react` + `Vitest` cho Frontend.
+  1. Cài `Jest` + `Supertest` cho Backend — API & Unit Integration Tests cho Auth, String Utils, Recurrence Helper và Error Handler.
+  2. Cài `@testing-library/react` + `Vitest` cho Frontend — Component tests & Utility tests.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Backend Test Suites**: [`stringUtils.test.ts`](file:///e:/Hoctap/manage-timetable/backend/tests/stringUtils.test.ts), [`recurrenceHelper.test.ts`](file:///e:/Hoctap/manage-timetable/backend/tests/recurrenceHelper.test.ts), [`errorHandler.test.ts`](file:///e:/Hoctap/manage-timetable/backend/tests/errorHandler.test.ts), [`auth.test.ts`](file:///e:/Hoctap/manage-timetable/backend/tests/auth.test.ts). Chạy `npm test` thành công **14/14 tests passed** (4 test suites).
+  - **Frontend Test Suites**: [`LanguageSelector.test.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/__tests__/LanguageSelector.test.tsx), [`pwaHelper.test.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/__tests__/pwaHelper.test.ts). Chạy `npm test` thành công **2/2 test suites passed**.
 
-#### Task D2: Hoàn thiện Web Push API cho PWA (Sửa Lỗi 08)
+#### Task D2: Hoàn thiện Web Push API cho PWA (Sửa Lỗi 08) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**: Tích hợp `web-push` ở backend, tạo endpoint `/api/notifications/subscribe` lưu PushSubscription và kích hoạt Service Worker notification.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Backend**: Thư viện `web-push`, Mongoose model [`PushSubscription.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/PushSubscription.ts), cấu hình VAPID [`webPushConfig.ts`](file:///e:/Hoctap/manage-timetable/backend/src/config/webPushConfig.ts) và endpoints `/api/notifications/vapid-public-key`, `/api/notifications/subscribe`, `/api/notifications/unsubscribe`.
+  - **Frontend & Service Worker**: Service Worker ([`sw.js`](file:///e:/Hoctap/manage-timetable/frontend/public/sw.js)) xử lý sự kiện `'push'` & `'notificationclick'`, client helper [`pwaHelper.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/utils/pwaHelper.ts), kết nối nút bật/tắt Web Push Notification trên giao diện [`CommonLayout.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/CommonLayout.tsx).
 
-#### Task D3: Refresh Token Rotation & Short-Lived Access Tokens (Sửa Lỗi 09)
+#### Task D3: Refresh Token Rotation & Short-Lived Access Tokens (Sửa Lỗi 09) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
 
 - **Giải pháp**:
   - Đổi Access Token thành 15 phút.
-  - Thêm Refresh Token cookie (7-30 ngày) và endpoint `/api/auth/refresh`.
+  - Thêm Refresh Token cookie (7 ngày) và endpoint `POST /api/auth/refresh`.
+  - Kích hoạt cơ chế Reuse Detection: Hủy tất cả phiên làm việc nếu phát hiện token bị thu hồi được sử dụng lại.
+- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
+  - **Backend**: Model [`RefreshToken.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/RefreshToken.ts) (hỗ trợ TTL index tự hủy, `isRevoked`, `replacedByToken`), Access Token ngắn hạn `15m`, Refresh Token `7d`, endpoint `/api/auth/refresh` kích hoạt Reuse Detection.
+  - **Frontend**: Axios Interceptor trong [`api.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/api.ts) tự động bắt lỗi HTTP 401 và gửi request refresh token ngầm để thực hiện lại request bị gián đoạn mà không ảnh hưởng trải nghiệm người dùng.
 
 ---
 
