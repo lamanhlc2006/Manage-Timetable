@@ -122,11 +122,21 @@
     "daySat": "Thứ 7",
     "daySun": "Chủ Nhật",
     "recurrenceEndDateLabel": "Ngày kết thúc lặp",
-    "forever": "Lặp vô tận",
-    "saveChanges": "Lưu thay đổi",
-    "createNew": "Tạo mới",
-    "quickAddHelp": "💡 Mặc định sự kiện tạo nhanh sẽ có danh mục là {{category}}, mức ưu tiên là {{priority}}. Nhấn Enter trong ô tiêu đề để lưu nhanh.",
-    "quickAddInputPlaceholder": "Ví dụ: Học React, Tập thể dục...",
+    "reminder": "Nhắc nhở trước",
+    "reminderLabel": "Nhắc nhở trước",
+    "selectReminderPlaceholder": "Chọn thời gian nhắc nhở",
+    "reminderNone": "Không nhắc nhở",
+    "noReminder": "Không nhắc nhở",
+    "reminder5m": "5 phút",
+    "reminder15m": "15 phút",
+    "reminder30m": "30 phút",
+    "reminder1h": "1 giờ",
+    "reminder1d": "1 ngày",
+    "reminder5mOption": "5 phút trước",
+    "reminder15mOption": "15 phút trước",
+    "reminder30mOption": "30 phút trước",
+    "reminder1hOption": "1 giờ trước",
+    "reminder1dOption": "1 ngày trước",
     "titleRequired": "Vui lòng điền tiêu đề lịch trình!",
     "categoryRequired": "Vui lòng chọn danh mục!",
     "priorityRequired": "Vui lòng chọn độ ưu tiên!",
@@ -259,5 +269,11 @@
     "resetConfirm": "Bạn có chắc chắn muốn reset mật khẩu người dùng này về mặc định (123456) không?",
     "roleAdmin": "Quản trị viên",
     "roleUser": "Người dùng"
+  },
+  "upcomingModal": {
+    "title": "Sự kiện sắp diễn ra trong 24h tới",
+    "subtitle": "Dưới đây là các lịch trình của bạn dự kiến sẽ diễn ra trong vòng 24 giờ tiếp theo:",
+    "empty": "Không có sự kiện nào trong 24 giờ tới",
+    "understandBtn": "Đã hiểu"
   }
 }

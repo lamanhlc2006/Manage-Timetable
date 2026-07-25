@@ -38,6 +38,19 @@ const UserSchema = new Schema<IUser>(
     lastLoginAt: {
       type: Date,
     },
+    googleCalendarSyncEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    googleTokens: {
+      access_token: String,
+      refresh_token: String,
+      expiry_date: Number,
+      token_type: String,
+    },
+    lastGoogleSyncAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

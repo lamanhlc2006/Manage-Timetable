@@ -11,18 +11,19 @@ import {
   CategoryItem,
 } from '../services/categoryService';
 import { fetchUsers } from '../services/userService';
-import { downloadIcsFile, downloadPdfReport } from '../services/exportService';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
   DownloadOutlined,
-  FilePdfOutlined,
   FilterOutlined,
   FireOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { PomodoroModal } from './PomodoroModal';
+import { IcsImportModal } from './IcsImportModal';
+import { ExportModal } from './ExportModal';
 import { useTranslation } from 'react-i18next';
 
 import FullCalendar from '@fullcalendar/react';
@@ -299,31 +300,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     setIsHelpModalVisible(true);
   }, { enableOnFormTags: false });
 
-  // Export Handlers
-  const handleExportIcs = async () => {
-    try {
-      message.loading({ content: 'Đang khởi tạo file .ics...', key: 'export_ics' });
-      await downloadIcsFile();
-      message.success({ content: 'Đã xuất file .ics thành công!', key: 'export_ics' });
-    } catch (err) {
-      console.error(err);
-      message.error({ content: 'Không thể xuất file .ics.', key: 'export_ics' });
-    }
-  };
 
-  const handleExportPdf = () => {
-    try {
-      if (schedules.length === 0) {
-        message.warning('Không có lịch trình nào để xuất PDF!');
-        return;
-      }
-      downloadPdfReport(schedules, 'BAO CAO THOI KHOA BIEU & LICH TRINH');
-      message.success('Đã tạo báo cáo PDF thành công!');
-    } catch (err) {
-      console.error(err);
-      message.error('Không thể tạo báo cáo PDF.');
-    }
-  };
+
+  // Import & Export Modal states
+  const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
 
   // Recurrence action dialog states
   const [isRecurrenceChoiceVisible, setIsRecurrenceChoiceVisible] = useState(false);
@@ -349,6 +330,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         recurrenceInterval: selectedEvent.recurrence?.interval || 1,
         recurrenceDaysOfWeek: selectedEvent.recurrence?.daysOfWeek || [],
         recurrenceEndDate: selectedEvent.recurrence?.endDate ? dayjs(selectedEvent.recurrence.endDate) : null,
+        reminderMinutes: selectedEvent.reminderMinutes !== undefined ? selectedEvent.reminderMinutes : null,
       });
     }, 0);
   };
@@ -389,6 +371,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         tags: values.tags,
         priority: values.priority,
         recurrence,
+        reminderMinutes: values.reminderMinutes !== undefined ? values.reminderMinutes : null,
       };
 
       const executeSave = async (forceOption = false) => {
@@ -602,6 +585,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       recurrence: schedule.recurrence,
       isException: schedule.isException,
       parentEvent: schedule.parentEvent,
+      reminderMinutes: schedule.reminderMinutes,
     },
   }));
 
@@ -634,6 +618,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         recurrenceInterval: 1,
         recurrenceDaysOfWeek: [],
         recurrenceEndDate: null,
+        reminderMinutes: 15,
       });
     }, 0);
   };
@@ -658,6 +643,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       recurrence: extended.recurrence,
       isException: extended.isException,
       parentEvent: extended.parentEvent,
+      reminderMinutes: extended.reminderMinutes,
       createdAt: '',
       updatedAt: '',
     };
@@ -693,6 +679,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         recurrenceInterval: 1,
         recurrenceDaysOfWeek: [],
         recurrenceEndDate: null,
+        reminderMinutes: 15,
       });
     }, 0);
 
@@ -1047,17 +1034,17 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         <Space wrap size="small">
           <Button
             icon={<DownloadOutlined />}
-            onClick={handleExportIcs}
+            onClick={() => setIsImportModalVisible(true)}
             style={{ borderRadius: '6px' }}
           >
-            {t('calendar.exportIcs')}
+            Import .ics
           </Button>
           <Button
-            icon={<FilePdfOutlined />}
-            onClick={handleExportPdf}
+            icon={<DownloadOutlined />}
+            onClick={() => setIsExportModalVisible(true)}
             style={{ borderRadius: '6px' }}
           >
-            {t('calendar.exportPdf')}
+            Xuất dữ liệu
           </Button>
           {isAdmin && (
             <Button onClick={() => setIsCategoryModalVisible(true)} style={{ borderRadius: '6px' }}>
@@ -1330,6 +1317,26 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                     </td>
                   </tr>
                 )}
+                <tr>
+                  <td style={{ padding: '8px 0', color: '#8c8c8c' }}>{t('calendar.reminder', 'Nhắc nhở trước')}:</td>
+                  <td style={{ padding: '8px 0', fontWeight: 500, color: '#fa8c16' }}>
+                    {selectedEvent.reminderMinutes ? (
+                      <Space>
+                        <BellOutlined style={{ color: '#fa8c16' }} />
+                        <span>
+                          {selectedEvent.reminderMinutes === 5 && t('calendar.reminder5m', '5 phút')}
+                          {selectedEvent.reminderMinutes === 15 && t('calendar.reminder15m', '15 phút')}
+                          {selectedEvent.reminderMinutes === 30 && t('calendar.reminder30m', '30 phút')}
+                          {selectedEvent.reminderMinutes === 60 && t('calendar.reminder1h', '1 giờ')}
+                          {selectedEvent.reminderMinutes === 1440 && t('calendar.reminder1d', '1 ngày')}
+                          {![5, 15, 30, 60, 1440].includes(selectedEvent.reminderMinutes) && `${selectedEvent.reminderMinutes} phút`}
+                        </span>
+                      </Space>
+                    ) : (
+                      <span style={{ color: '#8c8c8c', fontWeight: 400 }}>{t('calendar.noReminder', 'Không nhắc nhở')}</span>
+                    )}
+                  </td>
+                </tr>
                 {selectedEvent.isException && (
                   <tr>
                     <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Loại sự kiện:</td>
@@ -1471,6 +1478,17 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 <Option value="high">
                   <Badge status="error" text={t('calendar.priorityHigh')} />
                 </Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item name="reminderMinutes" label={t('calendar.reminderLabel', 'Nhắc nhở trước')}>
+              <Select placeholder={t('calendar.selectReminderPlaceholder', 'Chọn thời gian nhắc nhở')}>
+                <Option value={null}>{t('calendar.reminderNone', 'Không nhắc nhở')}</Option>
+                <Option value={5}>{t('calendar.reminder5mOption', '5 phút trước')}</Option>
+                <Option value={15}>{t('calendar.reminder15mOption', '15 phút trước')}</Option>
+                <Option value={30}>{t('calendar.reminder30mOption', '30 phút trước')}</Option>
+                <Option value={60}>{t('calendar.reminder1hOption', '1 giờ trước')}</Option>
+                <Option value={1440}>{t('calendar.reminder1dOption', '1 ngày trước')}</Option>
               </Select>
             </Form.Item>
 
@@ -1723,6 +1741,20 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         open={isPomodoroOpen}
         onClose={() => setIsPomodoroOpen(false)}
         initialEvent={pomodoroInitialEvent}
+      />
+
+      {/* .ics Import Modal */}
+      <IcsImportModal
+        visible={isImportModalVisible}
+        onClose={() => setIsImportModalVisible(false)}
+        onSuccess={() => triggerFilterChange(keyword, categories, priority, currentRange)}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        visible={isExportModalVisible}
+        onClose={() => setIsExportModalVisible(false)}
+        schedules={schedules}
       />
     </div>
   );

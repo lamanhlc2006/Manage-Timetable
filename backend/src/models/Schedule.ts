@@ -78,6 +78,22 @@ const ScheduleSchema = new Schema<ISchedule>(
       type: Boolean,
       default: false,
     },
+    reminderMinutes: {
+      type: Number,
+      default: null,
+    },
+    reminderSent: {
+      type: Boolean,
+      default: false,
+    },
+    googleEventId: {
+      type: String,
+      default: null,
+    },
+    syncedWithGoogle: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import {
   getSchedules,
+  getUpcomingSchedules,
+  importIcsSchedules,
   createSchedule,
   updateSchedule,
   deleteSchedule,
@@ -15,6 +17,12 @@ const router = Router();
 
 // Retrieve all schedule events (Available to any authenticated user)
 router.get('/', protect, getSchedules);
+
+// Retrieve upcoming schedules in the next 24 hours
+router.get('/upcoming', protect, getUpcomingSchedules);
+
+// Bulk import schedule events from parsed .ics file
+router.post('/import-ics', protect, importIcsSchedules);
 
 // Export schedules to .ics file
 router.get('/export/ics', protect, exportIcs);

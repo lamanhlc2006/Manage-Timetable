@@ -12,10 +12,23 @@ import {
   GlobalOutlined,
   SunOutlined,
   MoonOutlined,
+  SyncOutlined,
+  CloudSyncOutlined,
+  CheckCircleOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons';
+import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { updateProfile, changePassword } from '../services/userService';
 import { fetchCategories, createCategory, updateCategory, deleteCategory, CategoryItem } from '../services/categoryService';
+import {
+  getGoogleAuthUrl,
+  getGoogleSyncStatus,
+  toggleGoogleSync,
+  disconnectGoogle,
+  syncGoogleNow,
+  GoogleSyncStatus,
+} from '../services/googleSyncService';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { useTheme } from '../context/ThemeContext';
 
@@ -37,6 +50,90 @@ export const Settings: React.FC = () => {
   const [editingCat, setEditingCat] = useState<CategoryItem | null>(null);
   const [catFormLoading, setCatFormLoading] = useState(false);
   const [catForm] = Form.useForm();
+
+  // Google Calendar Sync state
+  const [googleStatus, setGoogleStatus] = useState<GoogleSyncStatus>({
+    connected: false,
+    syncEnabled: false,
+    lastSyncAt: null,
+  });
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [syncingNow, setSyncingNow] = useState(false);
+
+  const loadGoogleStatus = useCallback(async () => {
+    setGoogleLoading(true);
+    try {
+      const status = await getGoogleSyncStatus();
+      setGoogleStatus(status);
+    } catch (err) {
+      console.error('Error loading Google sync status:', err);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGoogleStatus();
+
+    // Check query params for Google Sync OAuth callback result
+    const urlParams = new URLSearchParams(window.location.search);
+    const syncResult = urlParams.get('google_sync');
+    if (syncResult === 'success') {
+      message.success('Đã kết nối và đồng bộ thành công với Google Calendar!');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      loadGoogleStatus();
+    } else if (syncResult === 'error') {
+      message.error('Lỗi khi kết nối với Google Calendar.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [loadGoogleStatus]);
+
+  const handleConnectGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const url = await getGoogleAuthUrl();
+      window.location.href = url;
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Không thể tạo liên kết OAuth Google');
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleToggleGoogleSync = async (checked: boolean) => {
+    try {
+      const res = await toggleGoogleSync(checked);
+      message.success(res.message);
+      setGoogleStatus((prev) => ({ ...prev, syncEnabled: res.syncEnabled }));
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái đồng bộ');
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const res = await disconnectGoogle();
+      message.success(res.message);
+      setGoogleStatus({ connected: false, syncEnabled: false, lastSyncAt: null });
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Lỗi ngắt kết nối');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleSyncGoogleNow = async () => {
+    setSyncingNow(true);
+    try {
+      const res = await syncGoogleNow();
+      message.success(res.message || 'Đồng bộ Google Calendar thành công!');
+      loadGoogleStatus();
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Lỗi khi đồng bộ Google Calendar');
+    } finally {
+      setSyncingNow(false);
+    }
+  };
 
   useEffect(() => {
     const userString = localStorage.getItem('user');
@@ -435,6 +532,99 @@ export const Settings: React.FC = () => {
             bordered
             style={{ borderRadius: '8px', overflow: 'hidden' }}
           />
+        </div>
+      ),
+    },
+    {
+      key: 'google_sync',
+      label: (
+        <span>
+          <CloudSyncOutlined />
+          Google Calendar
+        </span>
+      ),
+      children: (
+        <div style={{ marginTop: '16px' }}>
+          <Card
+            type="inner"
+            title={
+              <Space>
+                <CloudSyncOutlined style={{ color: '#4285F4' }} />
+                <span>Đồng bộ 2 chiều với Google Calendar</span>
+              </Space>
+            }
+            style={{ borderRadius: '8px' }}
+          >
+            {googleStatus.connected ? (
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '18px' }} />
+                    <Text strong style={{ color: '#52c41a' }}>Đã kết nối tài khoản Google Calendar</Text>
+                  </Space>
+                  <Tag color="success">HOẠT ĐỘNG</Tag>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '12px 16px', borderRadius: '6px' }}>
+                  <div>
+                    <Text strong style={{ display: 'block' }}>Tự động đồng bộ 2 chiều</Text>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      Tự động đẩy sự kiện mới lên Google và kéo sự kiện mới nhất về ứng dụng
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={googleStatus.syncEnabled}
+                    onChange={handleToggleGoogleSync}
+                  />
+                </div>
+
+                {googleStatus.lastSyncAt && (
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
+                    Lần đồng bộ gần nhất: {new Date(googleStatus.lastSyncAt).toLocaleString('vi-VN')}
+                  </Text>
+                )}
+
+                <Space style={{ marginTop: '8px' }}>
+                  <Button
+                    type="primary"
+                    icon={<SyncOutlined spin={syncingNow} />}
+                    loading={syncingNow}
+                    onClick={handleSyncGoogleNow}
+                  >
+                    Đồng bộ ngay
+                  </Button>
+                  <Popconfirm
+                    title="Ngắt kết nối với Google Calendar?"
+                    description="Sau khi ngắt kết nối, các sự kiện mới sẽ không còn được tự động đồng bộ."
+                    onConfirm={handleDisconnectGoogle}
+                    okText="Ngắt kết nối"
+                    cancelText="Hủy"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger icon={<DisconnectOutlined />}>
+                      Ngắt kết nối
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              </Space>
+            ) : (
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                  Kết nối ứng dụng với tài khoản Google Calendar để tự động đồng bộ các lịch trình học tập, công việc 2 chiều trên cả máy tính và điện thoại.
+                </Paragraph>
+                <Button
+                  type="primary"
+                  icon={<CloudSyncOutlined />}
+                  loading={googleLoading}
+                  onClick={handleConnectGoogle}
+                  style={{ background: '#4285F4', borderColor: '#4285F4', borderRadius: '6px' }}
+                  size="large"
+                >
+                  Kết nối với Google Calendar
+                </Button>
+              </Space>
+            )}
+          </Card>
         </div>
       ),
     },

@@ -30,6 +30,7 @@ export const createScheduleSchema = z
     tags: z.array(z.string()).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
     recurrence: recurrenceSchema.optional(),
+    reminderMinutes: z.number().nullable().optional(),
     force: z.boolean().optional(),
     forceCreate: z.boolean().optional(),
   })
@@ -63,6 +64,7 @@ export const updateScheduleSchema = z
     priority: z.enum(['low', 'medium', 'high']).optional(),
     recurrence: recurrenceSchema.optional(),
     recurrenceEditMode: z.enum(['all', 'current', 'future']).optional(),
+    reminderMinutes: z.number().nullable().optional(),
     force: z.boolean().optional(),
     forceCreate: z.boolean().optional(),
   })

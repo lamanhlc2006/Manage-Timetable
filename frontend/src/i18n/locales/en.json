@@ -122,11 +122,21 @@
     "daySat": "Saturday",
     "daySun": "Sunday",
     "recurrenceEndDateLabel": "End date",
-    "forever": "Never ends",
-    "saveChanges": "Save Changes",
-    "createNew": "Create New",
-    "quickAddHelp": "💡 Quick Add defaults category to {{category}}, priority to {{priority}}. Press Enter in title box to save.",
-    "quickAddInputPlaceholder": "e.g.: Study React, Exercise...",
+    "reminder": "Reminder",
+    "reminderLabel": "Reminder Before",
+    "selectReminderPlaceholder": "Select reminder time",
+    "reminderNone": "No reminder",
+    "noReminder": "No reminder",
+    "reminder5m": "5 mins",
+    "reminder15m": "15 mins",
+    "reminder30m": "30 mins",
+    "reminder1h": "1 hour",
+    "reminder1d": "1 day",
+    "reminder5mOption": "5 minutes before",
+    "reminder15mOption": "15 minutes before",
+    "reminder30mOption": "30 minutes before",
+    "reminder1hOption": "1 hour before",
+    "reminder1dOption": "1 day before",
     "titleRequired": "Please enter schedule title!",
     "categoryRequired": "Please select a category!",
     "priorityRequired": "Please select priority level!",
@@ -259,5 +269,11 @@
     "resetConfirm": "Are you sure you want to reset this user's password to default (123456)?",
     "roleAdmin": "Administrator",
     "roleUser": "User"
+  },
+  "upcomingModal": {
+    "title": "Upcoming Events in Next 24 Hours",
+    "subtitle": "Here are your events scheduled for the next 24 hours:",
+    "empty": "No upcoming events in the next 24 hours",
+    "understandBtn": "Got it"
   }
 }

@@ -71,9 +71,22 @@ app.get('/', (req, res) => {
 // Global Error Handler Middleware
 app.use(globalErrorHandler);
 
+import http from 'http';
+import { initSocket } from './config/socket';
+import { startReminderCron } from './services/reminderCron';
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+initSocket(server);
+
+// Start Reminder Background Cron Job
+startReminderCron();
+
 // Port configuration
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

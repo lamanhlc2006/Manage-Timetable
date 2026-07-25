@@ -8,6 +8,14 @@ export interface IUser extends Document {
   isActive: boolean;
   matchPassword: (enteredPassword: string) => Promise<boolean>;
   lastLoginAt?: Date;
+  googleCalendarSyncEnabled?: boolean;
+  googleTokens?: {
+    access_token?: string | null;
+    refresh_token?: string | null;
+    expiry_date?: number | null;
+    token_type?: string | null;
+  };
+  lastGoogleSyncAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +42,10 @@ export interface ISchedule extends Document {
   isException?: boolean;
   parentEvent?: Types.ObjectId | ISchedule;
   isPublic?: boolean;
+  reminderMinutes?: number | null;
+  reminderSent?: boolean;
+  googleEventId?: string;
+  syncedWithGoogle?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

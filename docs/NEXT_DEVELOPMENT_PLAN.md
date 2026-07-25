@@ -1,7 +1,7 @@
 # 📅 Kế Hoạch Phát Triển Tiếp Theo — Manage Timetable
 
 > **Vai trò**: Senior QA Lead & System Architect  
-> **Ngày cập nhật**: 24/07/2026  
+> **Ngày cập nhật**: 25/07/2026  
 > **Tham chiếu**: [PRODUCT_ANALYSIS.md](./PRODUCT_ANALYSIS.md)  
 > **Trạng thái**: Phase 3 (~40% hoàn thành) — Còn lại: Hotfix bảo mật + Nâng cấp tính năng
 
@@ -246,27 +246,57 @@
   - **Backend**: Model [`RefreshToken.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/RefreshToken.ts) (hỗ trợ TTL index tự hủy, `isRevoked`, `replacedByToken`), Access Token ngắn hạn `15m`, Refresh Token `7d`, endpoint `/api/auth/refresh` kích hoạt Reuse Detection.
   - **Frontend**: Axios Interceptor trong [`api.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/api.ts) tự động bắt lỗi HTTP 401 và gửi request refresh token ngầm để thực hiện lại request bị gián đoạn mà không ảnh hưởng trải nghiệm người dùng.
 
+#### Task D4: Hệ thống Nhắc nhở nâng cao & Socket.IO Real-time — 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)**
+
+- **Giải pháp**:
+  - **Job ngầm (Event Reminders)**: Thư viện `node-cron` chạy ngầm định kỳ mỗi phút (`services/reminderCron.ts`) quét các sự kiện tĩnh và lặp lại có cài đặt `reminderMinutes`, phát thông báo in-app `Notification` và gửi Web Push notification qua `web-push` API (Task D2).
+  - **Upcoming Events 24h**: Endpoint `GET /api/schedules/upcoming` trả về các sự kiện diễn ra trong 24h tới (bao gồm virtual instances), tích hợp với `UpcomingEventsModal.tsx` trên Frontend khi đăng nhập/tải trang.
+  - **WebSocket Real-time**: Sử dụng `socket.io` (Backend: `config/socket.ts`) và `socket.io-client` (Frontend: `services/socketService.ts`) với cơ chế xác thực JWT Token qua handshake. Phát tin nhắn real-time khi có sự kiện được tạo (`schedule:created`), cập nhật (`schedule:updated`), xóa (`schedule:deleted`) và thông báo mới (`notification:new`), tự động cập nhật UI mà không cần polling 30s.
+- **Trạng thái**: 🟢 **Đã hoàn thành (25/07/2026)**.
+  - **Backend**: Service [`reminderCron.ts`](file:///e:/Hoctap/manage-timetable/backend/src/services/reminderCron.ts), socket config [`socket.ts`](file:///e:/Hoctap/manage-timetable/backend/src/config/socket.ts), endpoint `GET /api/schedules/upcoming` trong [`scheduleController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/scheduleController.ts), cập nhật model [`Schedule.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/Schedule.ts).
+  - **Frontend**: Service [`socketService.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/socketService.ts), component [`UpcomingEventsModal.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/UpcomingEventsModal.tsx), tích hợp `reminderMinutes` Select trong [`ScheduleCalendar.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/ScheduleCalendar.tsx), kết nối socket listeners trong [`CommonLayout.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/CommonLayout.tsx) và [`Dashboard.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/pages/Dashboard.tsx).
+
+#### Task D5: Import & Sync Dữ Liệu (.ics, Excel/CSV, Google Calendar 2-Way Sync) — 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)**
+
+- **Giải pháp**:
+  - **.ics Import**: Sử dụng `ical.js` kết hợp regex fallback parser trên Frontend (`IcsImportModal.tsx`), hỗ trợ xem trước (Preview) danh sách sự kiện và gửi bulk insert về Backend qua endpoint `POST /api/schedules/import-ics`.
+  - **Excel/CSV Export**: Sử dụng `xlsx` (SheetJS) và `papaparse` (kèm BOM UTF-8 `\uFEFF`) tại `exportService.ts`, cho phép người dùng lọc xuất file Excel (`.xlsx`), CSV (`.csv`), `.ics`, hoặc PDF theo tuần, tháng hoặc khoảng ngày tùy chọn qua `ExportModal.tsx`.
+  - **Google Calendar 2-way Sync**: Tích hợp `googleapis` (Backend: `googleCalendarService.ts`, `googleAuthController.ts`) và luồng xác thực Google OAuth2. Endpoint `/api/auth/google/*` hỗ trợ xin cấp quyền, lưu trữ OAuth tokens, tự động đồng bộ 2 chiều (Push & Pull) kèm cơ chế chống lặp vô hạn (Infinite Sync Loop) với `googleEventId`. Quản lý trạng thái kết nối và bật/tắt đồng bộ trực tiếp tại trang Cài đặt (Settings).
+- **Trạng thái**: 🟢 **Đã hoàn thành (25/07/2026)**.
+  - **Backend**: Service [`googleCalendarService.ts`](file:///e:/Hoctap/manage-timetable/backend/src/services/googleCalendarService.ts), controller [`googleAuthController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/googleAuthController.ts), endpoint `POST /api/schedules/import-ics` trong [`scheduleController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/scheduleController.ts), cập nhật model [`User.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/User.ts) & [`Schedule.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/Schedule.ts).
+  - **Frontend**: Service [`googleSyncService.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/googleSyncService.ts), modal [`IcsImportModal.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/IcsImportModal.tsx), modal [`ExportModal.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/ExportModal.tsx), tích hợp nút Import/Export trên [`ScheduleCalendar.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/ScheduleCalendar.tsx), card quản lý Google Calendar trong [`Settings.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/pages/Settings.tsx).
+
 ---
 
 ## 4. Lộ Trình Nâng Cấp & Tính Năng Chưa Thực Hiện
 
 ### 4.1 Tính năng Phase 3 chưa hoàn thành
 
-#### 🔔 Hệ thống Nhắc nhở nâng cao (Reminder Notifications)
+#### 🔔 Hệ thống Nhắc nhở nâng cao (Reminder Notifications) — 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)**
 
 | Loại | Kênh | Mô tả | Trạng thái |
 |---|---|---|---|
-| **Nhắc nhở trước sự kiện** | In-app + Browser Push | Tùy chọn: 5p / 15p / 30p / 1h / 1 ngày trước khi bắt đầu | ❌ Chưa triển khai |
-| **Thông báo sự kiện sắp tới** | In-app | Tóm tắt sự kiện trong 24h tới khi mở app | ❌ Chưa triển khai |
-| **WebSocket real-time** | Socket.IO | Thay thế polling 30s bằng real-time updates | ❌ Chưa triển khai |
+| **Nhắc nhở trước sự kiện** | In-app + Browser Push | Tùy chọn: 5p / 15p / 30p / 1h / 1 ngày trước khi bắt đầu | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
+| **Thông báo sự kiện sắp tới** | In-app | Tóm tắt sự kiện trong 24h tới khi mở app | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
+| **WebSocket real-time** | Socket.IO | Thay thế polling 30s bằng real-time updates | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
 
-#### 📥 Import & Sync dữ liệu
+> 📌 **Ghi chú kỹ thuật (Note)**:
+> - **Job ngầm (Event Reminders)**: Thư viện `node-cron` chạy ngầm định kỳ mỗi phút (`services/reminderCron.ts`) quét các sự kiện tĩnh và lặp lại có cài đặt `reminderMinutes`, phát thông báo in-app `Notification` và gửi Web Push notification qua `web-push` API (Task D2).
+> - **Upcoming Events 24h**: Endpoint `GET /api/schedules/upcoming` trả về các sự kiện diễn ra trong 24h tới (bao gồm virtual instances), tích hợp với `UpcomingEventsModal.tsx` trên Frontend khi đăng nhập/tải trang.
+> - **WebSocket Real-time**: Sử dụng `socket.io` (Backend: `config/socket.ts`) và `socket.io-client` (Frontend: `services/socketService.ts`) với cơ chế xác thực JWT Token qua handshake. Phát tin nhắn real-time khi có sự kiện được tạo (`schedule:created`), cập nhật (`schedule:updated`), xóa (`schedule:deleted`) và thông báo mới (`notification:new`), tự động cập nhật UI mà không cần polling 30s.
+
+#### 📥 Import & Sync dữ liệu — 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)**
 
 | Định dạng | Hướng | Thư viện | Trạng thái |
 |---|---|---|---|
-| **.ics Import** | ← Import | `ical.js` | ❌ Chưa triển khai |
-| **Excel/CSV Export** | → Export | `xlsx`, `papaparse` | ❌ Chưa triển khai |
-| **Google Calendar** | ↔ Sync 2 chiều | Google APIs client | ❌ Chưa triển khai |
+| **.ics Import** | ← Import | `ical.js` | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
+| **Excel/CSV Export** | → Export | `xlsx`, `papaparse` | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
+| **Google Calendar** | ↔ Sync 2 chiều | Google APIs client (`googleapis`) | 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)** |
+
+> 📌 **Ghi chú kỹ thuật (Note)**:
+> - **.ics Import**: Sử dụng `ical.js` kết hợp regex fallback parser trên Frontend (`IcsImportModal.tsx`), hỗ trợ xem trước (Preview) danh sách sự kiện và gửi bulk insert về Backend qua endpoint `POST /api/schedules/import-ics`.
+> - **Excel/CSV Export**: Sử dụng `xlsx` (SheetJS) và `papaparse` (kèm BOM UTF-8 `\uFEFF`) tại `exportService.ts`, cho phép người dùng lọc xuất file Excel (`.xlsx`), CSV (`.csv`), `.ics`, hoặc PDF theo tuần, tháng hoặc khoảng ngày tùy chọn qua `ExportModal.tsx`.
+> - **Google Calendar 2-way Sync**: Tích hợp `googleapis` (Backend: `googleCalendarService.ts`, `googleAuthController.ts`) và luồng xác thực Google OAuth2. Endpoint `/api/auth/google/*` hỗ trợ xin cấp quyền, lưu trữ OAuth tokens, tự động đồng bộ 2 chiều (Push & Pull) kèm cơ chế chống lặp vô hạn (Infinite Sync Loop) với `googleEventId`. Quản lý trạng thái kết nối và bật/tắt đồng bộ trực tiếp tại trang Cài đặt (Settings).
 
 #### 📊 Analytics Dashboard nâng cao
 

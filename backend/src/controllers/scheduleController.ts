@@ -7,6 +7,124 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import { expandRecurringEvents, checkScheduleConflicts } from '../config/recurrenceHelper';
 import { escapeRegex } from '../utils/stringUtils';
 import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
+import { emitScheduleCreated, emitScheduleUpdated, emitScheduleDeleted } from '../config/socket';
+
+/**
+ * @desc    Get upcoming schedules in the next 24 hours
+ * @route   GET /api/schedules/upcoming
+ * @access  Private
+ */
+export const getUpcomingSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const now = new Date();
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const baseConditions: any[] = [
+      {
+        $or: [
+          {
+            'recurrence.type': { $exists: true, $ne: 'none' },
+            startTime: { $lt: next24h },
+            $or: [
+              { 'recurrence.endDate': { $exists: false } },
+              { 'recurrence.endDate': null },
+              { 'recurrence.endDate': { $gte: now } },
+            ],
+          },
+          {
+            $or: [
+              { 'recurrence.type': { $exists: false } },
+              { 'recurrence.type': 'none' },
+            ],
+            startTime: { $gte: now, $lte: next24h },
+          },
+        ],
+      },
+    ];
+
+    if (req.user.role !== 'admin') {
+      baseConditions.push({
+        $or: [
+          { createdBy: req.user._id },
+          { isPublic: true },
+        ],
+      });
+    }
+
+    const schedules = await Schedule.find({ $and: baseConditions }).populate('createdBy', 'username email role');
+    const expanded = expandRecurringEvents(schedules, now, next24h);
+
+    const upcoming = expanded
+      .filter((evt) => {
+        const evtStart = new Date(evt.startTime);
+        return evtStart >= now && evtStart <= next24h;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    res.json(upcoming);
+  } catch (error: any) {
+    handleControllerError(res, error, 'Get upcoming schedules error');
+  }
+};
+
+/**
+ * @desc    Bulk import schedules parsed from .ics file
+ * @route   POST /api/schedules/import-ics
+ * @access  Private
+ */
+export const importIcsSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+
+    const { events } = req.body;
+    if (!Array.isArray(events) || events.length === 0) {
+      res.status(400).json({ message: 'Danh sách sự kiện nhập không hợp lệ hoặc trống' });
+      return;
+    }
+
+    const validSchedules = events.map((item: any) => ({
+      title: item.title ? String(item.title).trim() : 'Sự kiện nhập',
+      description: item.description ? String(item.description).trim() : '',
+      startTime: new Date(item.startTime),
+      endTime: new Date(item.endTime),
+      color: item.color || '#1890ff',
+      category: item.category || 'Nhập từ file',
+      priority: ['low', 'medium', 'high'].includes(item.priority) ? item.priority : 'medium',
+      createdBy: req.user!._id,
+    }));
+
+    const filtered = validSchedules.filter(
+      (s) => !isNaN(s.startTime.getTime()) && !isNaN(s.endTime.getTime()) && s.startTime < s.endTime
+    );
+
+    if (filtered.length === 0) {
+      res.status(400).json({ message: 'Không có sự kiện nào hợp lệ để nhập vào hệ thống' });
+      return;
+    }
+
+    const inserted = await Schedule.insertMany(filtered);
+
+    if (req.user) {
+      emitScheduleCreated(req.user._id.toString(), { count: inserted.length });
+    }
+
+    res.status(201).json({
+      message: `Đã nhập thành công ${inserted.length} sự kiện vào lịch trình`,
+      count: inserted.length,
+      schedules: inserted,
+    });
+  } catch (error: any) {
+    handleControllerError(res, error, 'Import ICS schedules error');
+  }
+};
 
 /**
  * @desc    Get all schedules
@@ -118,6 +236,8 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
+    const reminderMinutes = req.body.reminderMinutes !== undefined ? req.body.reminderMinutes : null;
+
     const newSchedule = await Schedule.create({
       title,
       description,
@@ -128,10 +248,17 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       tags: tags || [],
       priority,
       recurrence: req.body.recurrence,
+      reminderMinutes,
+      reminderSent: false,
       createdBy: req.user._id,
     });
 
     const populatedSchedule = await Schedule.findById(newSchedule._id).populate('createdBy', 'username email role');
+
+    // Emit Socket.IO real-time event
+    if (req.user) {
+      emitScheduleCreated(req.user._id.toString(), populatedSchedule);
+    }
 
     // Auto-create notifications for other active users when an Admin creates a schedule
     if (req.user && req.user.role === 'admin') {
@@ -310,6 +437,8 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    const reminderMinutes = req.body.reminderMinutes;
+
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
@@ -320,6 +449,12 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     if (recurrence !== undefined) updateData.recurrence = recurrence;
     if (startTime !== undefined) updateData.startTime = start;
     if (endTime !== undefined) updateData.endTime = end;
+    if (reminderMinutes !== undefined) {
+      updateData.reminderMinutes = reminderMinutes;
+      updateData.reminderSent = false;
+    } else if (startTime !== undefined) {
+      updateData.reminderSent = false;
+    }
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
       targetId,
@@ -327,12 +462,13 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       { new: true, runValidators: true }
     ).populate('createdBy', 'username email role');
 
-    // Send notification if admin updates schedule belonging to another user or system schedule
     const targetUserId = (schedule.createdBy as any)._id
       ? (schedule.createdBy as any)._id.toString()
       : schedule.createdBy.toString();
 
     if (req.user) {
+      emitScheduleUpdated(targetUserId, updatedSchedule);
+
       if (targetUserId !== req.user._id.toString()) {
         await Notification.create({
           recipient: targetUserId,
@@ -475,6 +611,10 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     await Schedule.findByIdAndDelete(targetId);
     await Schedule.deleteMany({ parentEvent: targetId });
+
+    if (req.user) {
+      emitScheduleDeleted(targetUserId, targetId);
+    }
 
     res.json({ message: 'Toàn bộ chuỗi lịch trình lặp đã được xóa thành công', id: targetId });
   } catch (error: any) {

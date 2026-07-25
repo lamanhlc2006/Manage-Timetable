@@ -2,6 +2,8 @@ import api from './api';
 import { ScheduleEvent } from './scheduleService';
 import jsPDF from 'jspdf';
 import dayjs from 'dayjs';
+import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 
 const isOffline = (): boolean => {
   return localStorage.getItem('offlineMode') === 'true';
@@ -112,4 +114,55 @@ export const downloadPdfReport = (schedules: ScheduleEvent[], docTitle: string =
   });
 
   doc.save('timetable-report.pdf');
+};
+
+const mapSchedulesToExportRows = (schedules: ScheduleEvent[]) => {
+  return schedules.map((item, index) => ({
+    'STT': index + 1,
+    'Tiêu đề': item.title,
+    'Ghi chú': item.description || '',
+    'Bắt đầu': dayjs(item.startTime).format('HH:mm DD/MM/YYYY'),
+    'Kết thúc': dayjs(item.endTime).format('HH:mm DD/MM/YYYY'),
+    'Danh mục': item.category || 'N/A',
+    'Độ ưu tiên': item.priority === 'high' ? 'Cao' : item.priority === 'low' ? 'Thấp' : 'Trung bình',
+    'Thẻ': (item.tags || []).join(', '),
+    'Người tạo': item.createdBy?.username || 'N/A',
+  }));
+};
+
+export const downloadExcelReport = (schedules: ScheduleEvent[], filename: string = 'timetable-export.xlsx'): void => {
+  const rows = mapSchedulesToExportRows(schedules);
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+
+  // Set column widths for clean readability
+  worksheet['!cols'] = [
+    { wch: 6 },  // STT
+    { wch: 30 }, // Tiêu đề
+    { wch: 40 }, // Ghi chú
+    { wch: 20 }, // Bắt đầu
+    { wch: 20 }, // Kết thúc
+    { wch: 15 }, // Danh mục
+    { wch: 12 }, // Độ ưu tiên
+    { wch: 20 }, // Thẻ
+    { wch: 15 }, // Người tạo
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Lịch trình');
+  XLSX.writeFile(workbook, filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`);
+};
+
+export const downloadCsvReport = (schedules: ScheduleEvent[], filename: string = 'timetable-export.csv'): void => {
+  const rows = mapSchedulesToExportRows(schedules);
+  const csvText = Papa.unparse(rows);
+
+  // Prepend UTF-8 BOM for proper Vietnamese character encoding in Microsoft Excel
+  const blob = new Blob(['\uFEFF' + csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 };

@@ -10,6 +10,7 @@ import {
   ScheduleEvent,
   CreateScheduleInput,
 } from '../services/scheduleService';
+import { subscribeToScheduleEvents } from '../services/socketService';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';
 
 export const Dashboard: React.FC = () => {
@@ -54,6 +55,28 @@ export const Dashboard: React.FC = () => {
     };
 
     getSchedulesList();
+  }, [filters]);
+
+  // Subscribe to Socket.IO real-time schedule events
+  useEffect(() => {
+    const unsubscribe = subscribeToScheduleEvents({
+      onCreated: async () => {
+        const data = await searchSchedules(filters);
+        setSchedules(data);
+      },
+      onUpdated: async () => {
+        const data = await searchSchedules(filters);
+        setSchedules(data);
+      },
+      onDeleted: async () => {
+        const data = await searchSchedules(filters);
+        setSchedules(data);
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [filters]);
 
   const handleCreate = async (inputData: CreateScheduleInput & { force?: boolean }) => {

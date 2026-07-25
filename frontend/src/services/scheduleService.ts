@@ -30,6 +30,7 @@ export interface ScheduleEvent {
   recurrence?: RecurrenceSettings;
   isException?: boolean;
   parentEvent?: string;
+  reminderMinutes?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +45,7 @@ export interface CreateScheduleInput {
   tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   recurrence?: RecurrenceSettings;
+  reminderMinutes?: number | null;
 }
 
 const isOffline = (): boolean => {
@@ -268,5 +270,63 @@ export const searchSchedules = async (params: {
   if (params.creator) queryParams.append('creator', params.creator);
 
   const response = await api.get<ScheduleEvent[]>(`/schedules/search?${queryParams.toString()}`);
+  return response.data;
+};
+
+export const getUpcomingSchedules = async (): Promise<ScheduleEvent[]> => {
+  if (isOffline()) {
+    const data = getOfflineSchedules();
+    const now = new Date().getTime();
+    const next24h = now + 24 * 60 * 60 * 1000;
+    return data.filter((item) => {
+      const t = new Date(item.startTime).getTime();
+      return t >= now && t <= next24h;
+    });
+  }
+  const response = await api.get<ScheduleEvent[]>('/schedules/upcoming');
+  return response.data;
+};
+
+export const importIcsSchedules = async (
+  events: Array<{
+    title: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    color?: string;
+    category?: string;
+    priority?: string;
+  }>
+): Promise<{ message: string; count: number; schedules: ScheduleEvent[] }> => {
+  if (isOffline()) {
+    const userString = localStorage.getItem('user');
+    const user = userString ? JSON.parse(userString) : { _id: 'mock-user', username: 'Guest', email: 'guest@example.com', role: 'user' };
+
+    const newSchedules: ScheduleEvent[] = events.map((item, idx) => ({
+      _id: `offline-import-${Date.now()}-${idx}`,
+      title: item.title,
+      description: item.description,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      color: item.color || '#1890ff',
+      category: item.category || 'Nhập từ file',
+      priority: (item.priority as any) || 'medium',
+      createdBy: user,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    const existing = getOfflineSchedules();
+    const updated = [...existing, ...newSchedules];
+    saveOfflineSchedules(updated);
+
+    return {
+      message: `Đã nhập thành công ${newSchedules.length} sự kiện vào lịch trình (Offline)`,
+      count: newSchedules.length,
+      schedules: newSchedules,
+    };
+  }
+
+  const response = await api.post('/schedules/import-ics', { events });
   return response.data;
 };

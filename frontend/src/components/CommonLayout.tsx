@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PomodoroModal } from './PomodoroModal';
+import { UpcomingEventsModal } from './UpcomingEventsModal';
 import { LanguageSelector } from './LanguageSelector';
 import { requestNotificationPermission, subscribeUserToWebPush, unsubscribeUserFromWebPush } from '../utils/pwaHelper';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -38,6 +39,8 @@ import {
   deleteNotification,
   NotificationItem,
 } from '../services/notificationService';
+import { getUpcomingSchedules, ScheduleEvent } from '../services/scheduleService';
+import { subscribeToScheduleEvents } from '../services/socketService';
 
 dayjs.extend(relativeTime);
 dayjs.locale('vi');
@@ -62,6 +65,9 @@ export const CommonLayout: React.FC = () => {
   );
 
   const [isScrolled, setIsScrolled] = useState(false);
+
+  const [upcomingEvents, setUpcomingEvents] = useState<ScheduleEvent[]>([]);
+  const [isUpcomingModalVisible, setIsUpcomingModalVisible] = useState<boolean>(false);
 
   // Responsive breakpoints handler & scroll listener
   useEffect(() => {
@@ -146,10 +152,39 @@ export const CommonLayout: React.FC = () => {
   useEffect(() => {
     if (!userId) return;
     loadNotifications();
-    // Periodically poll for new notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, [loadNotifications, userId]);
+
+  // Socket listener for real-time notification pushes
+  useEffect(() => {
+    if (!userId) return;
+    const unsubscribe = subscribeToScheduleEvents({
+      onNotificationNew: (newNotif) => {
+        setNotifications((prev) => [newNotif, ...prev]);
+      },
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [userId]);
+
+  // Fetch upcoming events for next 24 hours on mount/login
+  useEffect(() => {
+    if (!userId) return;
+    const checkUpcoming = async () => {
+      try {
+        const upcoming = await getUpcomingSchedules();
+        if (upcoming && upcoming.length > 0) {
+          setUpcomingEvents(upcoming);
+          setIsUpcomingModalVisible(true);
+        }
+      } catch (err) {
+        console.error('Error fetching upcoming events summary:', err);
+      }
+    };
+    checkUpcoming();
+  }, [userId]);
 
   const handleMarkRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -848,6 +883,18 @@ export const CommonLayout: React.FC = () => {
       <PomodoroModal
         open={pomodoroOpen}
         onClose={() => setPomodoroOpen(false)}
+      />
+
+      {/* Upcoming 24h Events Summary Modal */}
+      <UpcomingEventsModal
+        visible={isUpcomingModalVisible}
+        events={upcomingEvents}
+        onClose={() => setIsUpcomingModalVisible(false)}
+        onSelectEvent={(evt) => {
+          if (location.pathname !== '/dashboard') {
+            navigate('/dashboard', { state: { scheduleId: evt._id } });
+          }
+        }}
       />
     </Layout>
   );
