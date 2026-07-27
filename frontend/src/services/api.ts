@@ -54,21 +54,10 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401 && originalRequest && !originalRequest._retry) {
       // Skip refresh for auth endpoints themselves
       if (
-        originalRequest.url === '/auth/login' ||
-        originalRequest.url === '/auth/register' ||
-        originalRequest.url === '/auth/refresh'
+        originalRequest.url?.includes('/auth/login') ||
+        originalRequest.url?.includes('/auth/register') ||
+        originalRequest.url?.includes('/auth/refresh')
       ) {
-        if (!isRedirecting && originalRequest.url !== '/auth/login') {
-          isRedirecting = true;
-          localStorage.removeItem('user');
-          localStorage.removeItem('offlineMode');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-          setTimeout(() => {
-            isRedirecting = false;
-          }, 3000);
-        }
         return Promise.reject(error);
       }
 
@@ -90,20 +79,24 @@ api.interceptors.response.use(
       try {
         const userString = localStorage.getItem('user');
         const user = userString ? JSON.parse(userString) : null;
+        
+        // If there's no stored user, don't attempt refresh
+        if (!user || !user.refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
         const res = await axios.post(
           '/api/auth/refresh',
-          { refreshToken: user?.refreshToken },
+          { refreshToken: user.refreshToken },
           { withCredentials: true }
         );
 
         const newToken = res.data.token;
         const newRefreshToken = res.data.refreshToken;
 
-        if (user) {
-          user.token = newToken;
-          if (newRefreshToken) user.refreshToken = newRefreshToken;
-          localStorage.setItem('user', JSON.stringify(user));
-        }
+        user.token = newToken;
+        if (newRefreshToken) user.refreshToken = newRefreshToken;
+        localStorage.setItem('user', JSON.stringify(user));
 
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -112,17 +105,15 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        if (!isRedirecting) {
-          isRedirecting = true;
+        
+        // Clear local auth storage when session is expired
+        if (localStorage.getItem('user')) {
           localStorage.removeItem('user');
           localStorage.removeItem('offlineMode');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-          setTimeout(() => {
-            isRedirecting = false;
-          }, 3000);
+          // Dispatch custom event for React Router to handle redirection without page reload
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
         }
+
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

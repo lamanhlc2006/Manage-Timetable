@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+
+// Load environment variables immediately before importing controllers/routes
+dotenv.config();
+
 import { connectDB } from './config/db';
 import authRoutes from './routes/authRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
@@ -10,9 +14,6 @@ import notificationRoutes from './routes/notificationRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import focusSessionRoutes from './routes/focusSessionRoutes';
 import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
-
-// Load environment variables
-dotenv.config();
 
 // Initialize express app
 const app = express();

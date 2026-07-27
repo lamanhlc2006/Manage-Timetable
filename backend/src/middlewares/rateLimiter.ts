@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
  */
 export const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  limit: 10,
+  limit: 60, // Raised to 60 requests/min for smoother dev testing & refresh token rotation
   standardHeaders: true,
   legacyHeaders: false,
   message: {

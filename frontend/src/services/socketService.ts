@@ -4,7 +4,19 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | null = null;
 
 export const connectSocket = (): Socket | null => {
-  const token = localStorage.getItem('token');
+  let token = localStorage.getItem('token');
+  if (!token) {
+    const userString = localStorage.getItem('user');
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        token = user?.token || null;
+      } catch (e) {
+        console.error('Error parsing user for socket token', e);
+      }
+    }
+  }
+
   if (!token) return null;
 
   if (socket && socket.connected) {

@@ -5,19 +5,19 @@ import { RefreshToken } from '../models/RefreshToken';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { handleControllerError } from '../utils/errorHandler';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
+const getJwtSecret = (): string => process.env.JWT_SECRET || 'fallback_secret';
+const getJwtRefreshSecret = (): string => process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
 
 // Helper function to generate Access Token (15 minutes expiration)
 const generateAccessToken = (id: string): string => {
-  return jwt.sign({ id }, JWT_SECRET, {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: '15m',
   });
 };
 
 // Helper function to generate Refresh Token (7 days expiration)
 const generateRefreshToken = (id: string): string => {
-  return jwt.sign({ id }, JWT_REFRESH_SECRET, {
+  return jwt.sign({ id }, getJwtRefreshSecret(), {
     expiresIn: '7d',
   });
 };
@@ -25,25 +25,26 @@ const generateRefreshToken = (id: string): string => {
 // Helper function to set authentication cookies
 const setAuthCookies = (res: Response, accessToken: string, refreshToken: string): void => {
   const isProduction = process.env.NODE_ENV === 'production';
+  const sameSiteSetting = isProduction ? 'strict' : 'lax';
 
   res.cookie('token', accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: sameSiteSetting,
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: sameSiteSetting,
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: sameSiteSetting,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
@@ -183,7 +184,7 @@ export const refreshAccessToken = async (req: Request, res: Response): Promise<v
 
     let decoded: any;
     try {
-      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+      decoded = jwt.verify(refreshToken, getJwtRefreshSecret());
     } catch (err) {
       res.status(401).json({ message: 'Invalid or expired refresh token' });
       return;
@@ -200,9 +201,11 @@ export const refreshAccessToken = async (req: Request, res: Response): Promise<v
     if (existingToken.isRevoked) {
       console.warn(`[Security Alert] Revoked refresh token reuse detected for user ${existingToken.user}`);
       await RefreshToken.updateMany({ user: existingToken.user }, { isRevoked: true });
-      res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
-      res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0) });
-      res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0) });
+      const isProduction = process.env.NODE_ENV === 'production';
+      const sameSiteSetting = isProduction ? 'strict' : 'lax';
+      res.cookie('token', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
+      res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
+      res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
       res.status(401).json({ message: 'Revoked refresh token reused. All sessions invalidated.' });
       return;
     }
@@ -278,9 +281,10 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
   }
 
   const isProduction = process.env.NODE_ENV === 'production';
-  res.cookie('token', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
-  res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
-  res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: 'strict' });
+  const sameSiteSetting = isProduction ? 'strict' : 'lax';
+  res.cookie('token', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
+  res.cookie('accessToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
+  res.cookie('refreshToken', '', { httpOnly: true, expires: new Date(0), secure: isProduction, sameSite: sameSiteSetting });
 
   res.json({ message: 'Logged out successfully' });
 };

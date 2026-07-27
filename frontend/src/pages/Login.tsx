@@ -26,32 +26,43 @@ export const Login: React.FC = () => {
     setLoading(true);
     const email = role === 'admin' ? 'admin@example.com' : 'user@example.com';
     const password = role === 'admin' ? 'admin123' : 'user123';
-    const username = role === 'admin' ? 'Demo Admin' : 'Demo User';
+    const username = role === 'admin' ? 'admin' : 'user';
 
     try {
-      // 1. Try to login via Backend API
-      const response = await api.post('/auth/login', { email, password });
+      // 1. Call real Backend API for demo login
+      let response;
+      try {
+        response = await api.post('/auth/login', { email, password });
+      } catch (loginErr: any) {
+        // If demo user does not exist in DB yet, auto-register demo user
+        if (loginErr.response?.status === 401 || loginErr.response?.status === 400) {
+          try {
+            await api.post('/auth/register', {
+              username,
+              email,
+              password,
+              role,
+            });
+            response = await api.post('/auth/login', { email, password });
+          } catch (regErr) {
+            throw loginErr;
+          }
+        } else {
+          throw loginErr;
+        }
+      }
+
       localStorage.setItem('user', JSON.stringify(response.data));
       localStorage.setItem('offlineMode', 'false');
-      message.success(`Đăng nhập thành công với tài khoản ảo ${response.data.username}!`);
+      message.success(`Đăng nhập thành công với tài khoản ${response.data.username}!`);
       navigate('/dashboard');
     } catch (error: any) {
-      console.warn('Backend login failed, switching to Offline Demo Mode:', error);
-      
-      // 2. Offline Fallback: If backend is offline or db connection failed, bypass
-      const mockUserData = {
-        _id: role === 'admin' ? 'mock-admin-id-123' : 'mock-user-id-456',
-        username,
-        email,
-        role,
-        token: `mock-jwt-token-for-${role}`,
-      };
-      
-      localStorage.setItem('user', JSON.stringify(mockUserData));
-      localStorage.setItem('offlineMode', 'true');
-      
-      message.info(`Đã chuyển sang Chế độ Demo Ngoại tuyến (${role === 'admin' ? 'Quản trị' : 'Người xem'})!`);
-      navigate('/dashboard');
+      console.error('Quick login failed:', error);
+      let msg = 'Không thể kết nối đến máy chủ backend (Port 5000) hoặc MongoDB. Vui lòng đảm bảo backend đang chạy!';
+      if (error.response?.data?.message) {
+        msg = error.response.data.message;
+      }
+      message.error(msg);
     } finally {
       setLoading(false);
     }

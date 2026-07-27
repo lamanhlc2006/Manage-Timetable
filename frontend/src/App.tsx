@@ -17,9 +17,21 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 // Route wrapper to guard pages requiring authentication
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const user = localStorage.getItem('user');
-  if (!user) {
-    // Redirect to login if user isn't authenticated
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(() => !!localStorage.getItem('user'));
+
+  React.useEffect(() => {
+    const handleUnauthorized = () => {
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
+  if (!isAuthenticated || !localStorage.getItem('user')) {
+    // Smoothly redirect to login if user isn't authenticated
     return <Navigate to="/login" replace />;
   }
   return children;

@@ -1,9 +1,9 @@
 # 📅 Kế Hoạch Phát Triển Tiếp Theo — Manage Timetable
 
 > **Vai trò**: Senior QA Lead & System Architect  
-> **Ngày cập nhật**: 25/07/2026  
+> **Ngày cập nhật**: 27/07/2026  
 > **Tham chiếu**: [PRODUCT_ANALYSIS.md](./PRODUCT_ANALYSIS.md)  
-> **Trạng thái**: Phase 3 (~40% hoàn thành) — Còn lại: Hotfix bảo mật + Nâng cấp tính năng
+> **Trạng thái**: Phase 1, 2, 3 & Phase D — Tech Debt & Security (🟢 **100% Hoàn Thành**) — Các lỗi Critical/High Security & Core Logic đã được khắc phục hoàn tất.
 
 ---
 
@@ -26,15 +26,15 @@
 |---|---|---|
 | Phase 1 — MVP Enhancement | 🟢 **100%** | Hoàn thành toàn bộ |
 | Phase 2 — Should-Have | 🟢 **100%** | Hoàn thành toàn bộ |
-| Phase 3 & Phase D — Tech Debt & Security | 🟢 **100%** | Dark Mode ✅, Settings ✅, Pomodoro ✅, i18n ✅, PWA Web Push ✅, Testing 100% ✅, Security & Refresh Token Rotation ✅ |
+| Phase 3 & Phase D — Tech Debt & Security | 🟢 **100%** | Dark Mode ✅, Settings ✅, Pomodoro ✅, i18n ✅, PWA Web Push ✅, Testing 100% ✅, Security & Refresh Token Rotation ✅, Socket.IO Realtime ✅, Google Calendar 2-Way Sync ✅, Reminders Cron ✅ |
 
-### Phân loại mức độ rủi ro (Risk Classification)
+### Phân loại mức độ rủi ro (Risk Classification — Cập nhật sau rà soát code 27/07/2026)
 
-| Mức độ | Số lượng | Mô tả rủi ro |
+| Mức độ | Số lượng | Mô tả rủi ro & Trạng thái |
 |---|---|---|
-| 🔴 **Cao (Critical / Security)** | 3 | IDOR, ReDoS / Regex Injection, Unhandled CastError (500) |
-| 🟡 **Trung bình (Logic / UX)** | 3 | Conflict lịch lặp, phân vùng dữ liệu `createdBy`, chuỗi hardcoded vỡ i18n |
-| 🟢 **Thấp (Tech Debt / Feature)** | 3 | Thiếu Test tự động, Web Push chưa xong, thiếu Refresh Token |
+| 🔴 **Cao (Critical / Security)** | 0 | 100% IDOR, ReDoS / Regex Injection, Unhandled CastError (500) đã được khắc phục |
+| 🟡 **Trung bình (Logic / UX)** | 0 | Conflict lịch lặp, User Scope Isolation (`createdBy`), i18n hardcoded strings đã hoàn thành |
+| 🟢 **Thấp (Tech Debt / Feature)** | 3 | Cap limit Bulk Import ICS (D6), Công tắc `isPublic` trên UI (D7), Phân trang Notification API (D8) |
 
 ---
 
@@ -236,15 +236,19 @@
   - **Backend**: Thư viện `web-push`, Mongoose model [`PushSubscription.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/PushSubscription.ts), cấu hình VAPID [`webPushConfig.ts`](file:///e:/Hoctap/manage-timetable/backend/src/config/webPushConfig.ts) và endpoints `/api/notifications/vapid-public-key`, `/api/notifications/subscribe`, `/api/notifications/unsubscribe`.
   - **Frontend & Service Worker**: Service Worker ([`sw.js`](file:///e:/Hoctap/manage-timetable/frontend/public/sw.js)) xử lý sự kiện `'push'` & `'notificationclick'`, client helper [`pwaHelper.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/utils/pwaHelper.ts), kết nối nút bật/tắt Web Push Notification trên giao diện [`CommonLayout.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/components/CommonLayout.tsx).
 
-#### Task D3: Refresh Token Rotation & Short-Lived Access Tokens (Sửa Lỗi 09) — 🟢 **ĐÃ HOÀN THÀNH (24/07/2026)**
+#### Task D3: Refresh Token Rotation & Short-Lived Access Tokens (Sửa Lỗi 09 & Hotfix Auth Reload Loop) — 🟢 **ĐÃ HOÀN THÀNH (27/07/2026)**
 
 - **Giải pháp**:
-  - Đổi Access Token thành 15 phút.
-  - Thêm Refresh Token cookie (7 ngày) và endpoint `POST /api/auth/refresh`.
+  - Đổi Access Token thành 15 phút, Refresh Token cookie (7 ngày) và endpoint `POST /api/auth/refresh`.
   - Kích hoạt cơ chế Reuse Detection: Hủy tất cả phiên làm việc nếu phát hiện token bị thu hồi được sử dụng lại.
-- **Trạng thái**: 🟢 **Đã hoàn thành (24/07/2026)**.
-  - **Backend**: Model [`RefreshToken.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/RefreshToken.ts) (hỗ trợ TTL index tự hủy, `isRevoked`, `replacedByToken`), Access Token ngắn hạn `15m`, Refresh Token `7d`, endpoint `/api/auth/refresh` kích hoạt Reuse Detection.
-  - **Frontend**: Axios Interceptor trong [`api.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/api.ts) tự động bắt lỗi HTTP 401 và gửi request refresh token ngầm để thực hiện lại request bị gián đoạn mà không ảnh hưởng trải nghiệm người dùng.
+  - **Hotfix Auth Reload Loop (27/07/2026)**:
+    - Frontend ([`api.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/api.ts)): Loại bỏ `window.location.href = '/login'`, phát event `auth:unauthorized` để React Router (`App.tsx`) chuyển trang mượt mà không reload trình duyệt.
+    - Frontend ([`Login.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/pages/Login.tsx)): Loại bỏ mock token giả trong Quick Login, gọi API đăng nhập thật với tự động fallback register tài khoản demo.
+    - Backend ([`authController.ts`](file:///e:/Hoctap/manage-timetable/backend/src/controllers/authController.ts)): Chỉnh `sameSite: 'lax'` ở môi trường `development` để trình duyệt không chặn HttpOnly Cookie giữa Port 3000 và 5000.
+    - Backend ([`.env`](file:///e:/Hoctap/manage-timetable/backend/.env)): Cấu hình cố định `JWT_SECRET`, `JWT_REFRESH_SECRET` và `NODE_ENV=development`.
+- **Trạng thái**: 🟢 **Đã hoàn thành (27/07/2026)**.
+  - **Backend**: Model [`RefreshToken.ts`](file:///e:/Hoctap/manage-timetable/backend/src/models/RefreshToken.ts), Access Token `15m`, Refresh Token `7d`, endpoint `/api/auth/refresh`, cookie `sameSite: 'lax'` dev mode, `.env` secrets.
+  - **Frontend**: Interceptor trong [`api.ts`](file:///e:/Hoctap/manage-timetable/frontend/src/services/api.ts), event handler trong [`App.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/App.tsx), Quick Login API trong [`Login.tsx`](file:///e:/Hoctap/manage-timetable/frontend/src/pages/Login.tsx).
 
 #### Task D4: Hệ thống Nhắc nhở nâng cao & Socket.IO Real-time — 🟢 **ĐÃ HOÀN THÀNH (25/07/2026)**
 
