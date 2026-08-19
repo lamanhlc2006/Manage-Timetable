@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Response } from 'express';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
@@ -181,8 +182,8 @@ export const resetUserPassword = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    const defaultPassword = 'user123';
-    user.password = defaultPassword;
+    const tempPassword = crypto.randomBytes(6).toString('base64url'); // e.g. "aB3xY9kL"
+    user.password = tempPassword;
     await user.save(); // pre-save hook will hash it
 
     // Create system notification for user
@@ -190,10 +191,10 @@ export const resetUserPassword = async (req: AuthRequest, res: Response): Promis
       recipient: user._id,
       type: 'system',
       title: 'Mật khẩu đã được reset',
-      message: 'Quản trị viên đã đặt lại mật khẩu của bạn thành mặc định (user123). Vui lòng đổi lại mật khẩu sớm.',
+      message: 'Quản trị viên đã đặt lại mật khẩu của bạn. Vui lòng liên hệ quản trị viên để nhận mật khẩu mới và đổi lại sớm.',
     });
 
-    res.json({ message: 'Đặt lại mật khẩu thành công. Mật khẩu mặc định là: user123' });
+    res.json({ message: `Đặt lại mật khẩu thành công. Mật khẩu tạm thời: ${tempPassword}` });
   } catch (error: any) {
     handleControllerError(res, error, 'Reset user password error');
   }

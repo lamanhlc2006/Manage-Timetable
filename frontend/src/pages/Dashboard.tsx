@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, message } from 'antd';
 import {
-  fetchSchedules,
   createSchedule,
   updateSchedule,
   patchScheduleTime,
@@ -93,7 +92,7 @@ export const Dashboard: React.FC = () => {
   const handleUpdate = async (id: string, inputData: Partial<CreateScheduleInput> & { force?: boolean; recurrenceEditMode?: 'all' | 'current' | 'future'; instanceDate?: string }) => {
     try {
       await updateSchedule(id, inputData);
-      const data = await fetchSchedules(filters);
+      const data = await searchSchedules(filters);
       setSchedules(data);
     } catch (err: any) {
       console.error(err);
@@ -104,7 +103,7 @@ export const Dashboard: React.FC = () => {
   const handleDelete = async (id: string, deleteMode?: 'all' | 'current' | 'future') => {
     try {
       await deleteSchedule(id, deleteMode);
-      const data = await fetchSchedules(filters);
+      const data = await searchSchedules(filters);
       setSchedules(data);
     } catch (err: any) {
       console.error(err);
@@ -115,7 +114,7 @@ export const Dashboard: React.FC = () => {
   const handlePatchTime = async (id: string, startTime: string, endTime: string, recurrenceEditMode?: 'all' | 'current' | 'future') => {
     try {
       await patchScheduleTime(id, { startTime, endTime, recurrenceEditMode });
-      const data = await fetchSchedules(filters);
+      const data = await searchSchedules(filters);
       setSchedules(data);
     } catch (err: any) {
       console.error(err);

@@ -41,8 +41,10 @@ export const fetchNotifications = async (): Promise<NotificationItem[]> => {
     return getOfflineNotifications();
   }
 
-  const response = await api.get<NotificationItem[]>('/notifications');
-  return response.data;
+  const response = await api.get('/notifications', { params: { page: 1, limit: 100 } });
+  // API returns { data: [...], pagination: {...} }
+  const items: NotificationItem[] = Array.isArray(response.data) ? response.data : response.data.data;
+  return items;
 };
 
 export const markNotificationAsRead = async (id: string): Promise<NotificationItem> => {

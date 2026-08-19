@@ -35,8 +35,18 @@ export const connectSocket = (): Socket | null => {
     autoConnect: true,
   });
 
-  socket.on('connect_error', (err) => {
-    console.warn('Socket connection error:', err.message);
+  socket.on('connect_error', (err: any) => {
+    console.warn('Socket connection error:', err?.message || err);
+    const msg = err?.message || '';
+    if (
+      msg.includes('Authentication error') ||
+      msg.includes('Invalid token') ||
+      msg.includes('Token missing') ||
+      msg.includes('jwt expired')
+    ) {
+      console.warn('Socket authentication failed. Disconnecting socket to prevent reconnect loop.');
+      disconnectSocket();
+    }
   });
 
   return socket;

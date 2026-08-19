@@ -21,6 +21,13 @@ export const handleControllerError = (
 ): void => {
   console.error(`${logContextMessage}:`, error);
 
+  if (error?.name === 'TokenExpiredError' || error?.name === 'JsonWebTokenError') {
+    res.status(401).json({
+      message: 'Token đã hết hạn hoặc không hợp lệ (Token expired or invalid)',
+    });
+    return;
+  }
+
   if (
     error.name === 'CastError' ||
     error instanceof mongoose.Error.CastError ||

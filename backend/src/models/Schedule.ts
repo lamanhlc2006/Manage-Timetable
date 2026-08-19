@@ -19,13 +19,6 @@ const ScheduleSchema = new Schema<ISchedule>(
     endTime: {
       type: Date,
       required: [true, 'Please provide an end time'],
-      validate: {
-        validator: function (this: ISchedule, value: Date) {
-          // Check that endTime is strictly after startTime
-          return this.startTime < value;
-        },
-        message: 'End time must be after start time',
-      },
     },
     color: {
       type: String,
@@ -99,6 +92,14 @@ const ScheduleSchema = new Schema<ISchedule>(
     timestamps: true,
   }
 );
+
+// Validate endTime > startTime (works with both save() and findByIdAndUpdate)
+ScheduleSchema.pre('validate', function (next) {
+  if (this.startTime && this.endTime && this.startTime >= this.endTime) {
+    this.invalidate('endTime', 'End time must be after start time');
+  }
+  next();
+});
 
 // Indexes for performance optimization
 ScheduleSchema.index({ category: 1 });

@@ -11,8 +11,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
   let token;
 
   // Check if token exists in cookies
-  if (req.cookies && (req.cookies.accessToken || req.cookies.token)) {
-    token = req.cookies.accessToken || req.cookies.token;
+  if (req.cookies && req.cookies.accessToken) {
+    token = req.cookies.accessToken;
   }
   // Fallback to Authorization header
   else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -26,7 +26,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
   try {
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as { id: string };
+    if (!process.env.JWT_SECRET) {
+      res.status(500).json({ message: 'Server configuration error: JWT_SECRET is not set' });
+      return;
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string };
 
     // Get user from token and attach to request object
     const user = await User.findById(decoded.id).select('-password');
@@ -41,9 +45,17 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
     req.user = user;
     next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    res.status(401).json({ message: 'Not authorized, token failed' });
+  } catch (error: any) {
+    console.error('Token verification error:', error?.message || error);
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ message: 'Token đã hết hạn, vui lòng đăng nhập lại (Token expired)' });
+      return;
+    }
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token không hợp lệ (Invalid token)' });
+      return;
+    }
+    res.status(401).json({ message: 'Không có quyền truy cập, xác thực thất bại (Not authorized, token failed)' });
     return;
   }
 };

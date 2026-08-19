@@ -1,13 +1,7 @@
 import { Request, Response } from 'express';
 import FocusSession from '../models/FocusSession';
 import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
-
-interface AuthRequest extends Request {
-  user?: {
-    _id: string;
-    role: string;
-  };
-}
+import { AuthRequest } from '../middlewares/authMiddleware';
 
 // @desc    Log a completed focus session
 // @route   POST /api/focus-sessions

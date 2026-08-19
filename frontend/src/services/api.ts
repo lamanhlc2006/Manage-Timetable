@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { message } from 'antd';
+import { disconnectSocket } from './socketService';
 
 axios.defaults.withCredentials = true;
 
@@ -45,19 +46,52 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+/**
+ * Clears authentication state from localStorage, disconnects socket,
+ * notifies app listeners and redirects user to /login page.
+ */
+export const clearAuthAndRedirect = () => {
+  localStorage.removeItem('user');
+  localStorage.removeItem('token');
+  localStorage.removeItem('offlineMode');
+
+  try {
+    disconnectSocket();
+  } catch (e) {
+    // Ignore socket error during logout cleanup
+  }
+
+  window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+
+  if (!isRedirecting && window.location.pathname !== '/login') {
+    isRedirecting = true;
+    window.location.href = '/login';
+  }
+};
+
 // Response interceptor to gracefully catch 401 & 429 errors and handle Refresh Token Rotation
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response && error.response.status === 401 && originalRequest && !originalRequest._retry) {
-      // Skip refresh for auth endpoints themselves
+    if (error.response && error.response.status === 401) {
+      // 1. Skip redirect for login & register endpoints (user entering wrong credentials)
       if (
-        originalRequest.url?.includes('/auth/login') ||
-        originalRequest.url?.includes('/auth/register') ||
-        originalRequest.url?.includes('/auth/refresh')
+        originalRequest?.url?.includes('/auth/login') ||
+        originalRequest?.url?.includes('/auth/register')
       ) {
+        return Promise.reject(error);
+      }
+
+      // 2. If refresh endpoint failed with 401 or retry already failed, clear auth & redirect
+      if (originalRequest?.url?.includes('/auth/refresh') || originalRequest?._retry) {
+        clearAuthAndRedirect();
+        return Promise.reject(error);
+      }
+
+      if (!originalRequest) {
+        clearAuthAndRedirect();
         return Promise.reject(error);
       }
 
@@ -71,7 +105,10 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
           })
-          .catch((err) => Promise.reject(err));
+          .catch((err) => {
+            clearAuthAndRedirect();
+            return Promise.reject(err);
+          });
       }
 
       isRefreshing = true;
@@ -80,22 +117,21 @@ api.interceptors.response.use(
         const userString = localStorage.getItem('user');
         const user = userString ? JSON.parse(userString) : null;
         
-        // If there's no stored user, don't attempt refresh
-        if (!user || !user.refreshToken) {
-          throw new Error('No refresh token available');
+        // If there's no stored user info, clear auth & redirect
+        if (!user) {
+          throw new Error('No user session available');
         }
 
+        // refreshToken is sent automatically via httpOnly cookie (withCredentials: true)
         const res = await axios.post(
           '/api/auth/refresh',
-          { refreshToken: user.refreshToken },
+          {},
           { withCredentials: true }
         );
 
         const newToken = res.data.token;
-        const newRefreshToken = res.data.refreshToken;
 
         user.token = newToken;
-        if (newRefreshToken) user.refreshToken = newRefreshToken;
         localStorage.setItem('user', JSON.stringify(user));
 
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
@@ -105,15 +141,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        
-        // Clear local auth storage when session is expired
-        if (localStorage.getItem('user')) {
-          localStorage.removeItem('user');
-          localStorage.removeItem('offlineMode');
-          // Dispatch custom event for React Router to handle redirection without page reload
-          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-        }
-
+        clearAuthAndRedirect();
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

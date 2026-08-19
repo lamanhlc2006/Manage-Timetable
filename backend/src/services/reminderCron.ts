@@ -6,8 +6,15 @@ import { emitNotificationNew } from '../config/socket';
 import { expandRecurringEvents } from '../config/recurrenceHelper';
 
 export const startReminderCron = () => {
+  let isRunning = false;
+
   // Run every minute: '* * * * *'
   cron.schedule('* * * * *', async () => {
+    if (isRunning) {
+      console.warn('⚠️ Reminder cron: previous run still in progress, skipping this tick');
+      return;
+    }
+    isRunning = true;
     try {
       const now = new Date();
       const lookahead = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours lookahead
@@ -110,6 +117,8 @@ export const startReminderCron = () => {
       }
     } catch (error) {
       console.error('Error running reminder cron job:', error);
+    } finally {
+      isRunning = false;
     }
   });
 };

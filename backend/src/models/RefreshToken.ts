@@ -39,7 +39,6 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
   }
 );
 
-RefreshTokenSchema.index({ token: 1 });
 RefreshTokenSchema.index({ user: 1 });
 RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Automatic TTL expiration
 

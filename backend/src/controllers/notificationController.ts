@@ -6,8 +6,8 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 
 /**
- * @desc    Get user notifications
- * @route   GET /api/notifications
+ * @desc    Get user notifications (paginated)
+ * @route   GET /api/notifications?page=1&limit=20
  * @access  Private
  */
 export const getNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -17,12 +17,28 @@ export const getNotifications = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const notifications = await Notification.find({ recipient: req.user._id })
-      .populate('relatedSchedule', 'title startTime endTime category priority')
-      .sort({ createdAt: -1 })
-      .limit(50);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const skip = (page - 1) * limit;
 
-    res.json(notifications);
+    const [notifications, total] = await Promise.all([
+      Notification.find({ recipient: req.user._id })
+        .populate('relatedSchedule', 'title startTime endTime category priority')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Notification.countDocuments({ recipient: req.user._id }),
+    ]);
+
+    res.json({
+      data: notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error: any) {
     handleControllerError(res, error, 'Get notifications error');
   }

@@ -84,7 +84,7 @@ export const expandRecurringEvents = (
       // Find the start of the week of the templateStart (shifting to Sunday)
       const startOfTemplateWeek = new Date(templateStart);
       startOfTemplateWeek.setHours(0, 0, 0, 0);
-      const dayOfWeekVal = startOfTemplateWeek.getDay();
+      const dayOfWeekVal = startOfTemplateWeek.getUTCDay();
       startOfTemplateWeek.setDate(startOfTemplateWeek.getDate() - dayOfWeekVal);
 
       while (temp.getTime() <= recurrenceEndLimit && limit < maxIterations) {
@@ -92,14 +92,15 @@ export const expandRecurringEvents = (
 
         // Calculate start of the current week (Sunday)
         const tempWeek = new Date(temp);
-        const tempDayOfWeekVal = tempWeek.getDay();
+        const tempDayOfWeekVal = tempWeek.getUTCDay();
         tempWeek.setDate(tempWeek.getDate() - tempDayOfWeekVal);
 
         const diffMs = tempWeek.getTime() - startOfTemplateWeek.getTime();
         const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 
         // Only allow days that are in the matching week interval and matching day of week
-        if (diffWeeks % interval === 0 && daysOfWeek.includes(temp.getDay())) {
+        // Use getUTCDay() to match exception dates which use toISOString() (UTC)
+        if (diffWeeks % interval === 0 && daysOfWeek.includes(temp.getUTCDay())) {
           const currentStart = new Date(temp);
           currentStart.setHours(
             templateStart.getHours(),

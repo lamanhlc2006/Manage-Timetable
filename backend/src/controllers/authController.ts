@@ -5,8 +5,14 @@ import { RefreshToken } from '../models/RefreshToken';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { handleControllerError } from '../utils/errorHandler';
 
-const getJwtSecret = (): string => process.env.JWT_SECRET || 'fallback_secret';
-const getJwtRefreshSecret = (): string => process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
+const getJwtSecret = (): string => {
+  if (!process.env.JWT_SECRET) throw new Error('FATAL: JWT_SECRET environment variable is not configured');
+  return process.env.JWT_SECRET;
+};
+const getJwtRefreshSecret = (): string => {
+  if (!process.env.JWT_REFRESH_SECRET) throw new Error('FATAL: JWT_REFRESH_SECRET environment variable is not configured');
+  return process.env.JWT_REFRESH_SECRET;
+};
 
 // Helper function to generate Access Token (15 minutes expiration)
 const generateAccessToken = (id: string): string => {
@@ -26,13 +32,6 @@ const generateRefreshToken = (id: string): string => {
 const setAuthCookies = (res: Response, accessToken: string, refreshToken: string): void => {
   const isProduction = process.env.NODE_ENV === 'production';
   const sameSiteSetting = isProduction ? 'strict' : 'lax';
-
-  res.cookie('token', accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: sameSiteSetting,
-    maxAge: 15 * 60 * 1000, // 15 minutes
-  });
 
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
@@ -55,7 +54,7 @@ const setAuthCookies = (res: Response, accessToken: string, refreshToken: string
  * @access  Public
  */
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
-  const { username, email, password, role } = req.body;
+  const { username, email, password } = req.body;
 
   try {
     const cleanUsername = username ? username.trim() : '';
@@ -84,7 +83,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       username: cleanUsername,
       email: cleanEmail,
       password,
-      role: role || 'user',
+      role: 'user',
     });
 
     if (user) {
@@ -106,7 +105,6 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         email: user.email,
         role: user.role,
         token: accessToken,
-        refreshToken,
       });
     } else {
       res.status(400).json({ message: 'Dữ liệu người dùng không hợp lệ.' });
@@ -158,7 +156,6 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         role: user.role,
         token: accessToken,
-        refreshToken,
       });
     } else {
       res.status(401).json({ message: 'Email hoặc mật khẩu không chính xác.' });
@@ -235,7 +232,6 @@ export const refreshAccessToken = async (req: Request, res: Response): Promise<v
 
     res.json({
       token: newAccessToken,
-      refreshToken: newRefreshToken,
     });
   } catch (error: any) {
     handleControllerError(res, error, 'Refresh token error');

@@ -30,10 +30,10 @@ router.get('/export/ics', protect, exportIcs);
 // Search and filter schedule events
 router.get('/search', protect, searchSchedules);
 
-// CRUD modifications (Only accessible to administrators)
-router.post('/', protect, isAdmin, validate(createScheduleSchema), createSchedule);
-router.put('/:id', protect, isAdmin, validate(updateScheduleSchema), updateSchedule);
-router.patch('/:id', protect, isAdmin, validate(updateScheduleSchema), updateSchedule);
-router.delete('/:id', protect, isAdmin, deleteSchedule);
+// CRUD modifications (Owner or Admin — authorization checked in controller)
+router.post('/', protect, validate(createScheduleSchema), createSchedule);
+router.put('/:id', protect, validate(updateScheduleSchema), updateSchedule);
+router.patch('/:id', protect, validate(updateScheduleSchema), updateSchedule);
+router.delete('/:id', protect, deleteSchedule);
 
 export default router;

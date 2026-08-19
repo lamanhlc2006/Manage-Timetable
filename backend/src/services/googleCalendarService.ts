@@ -1,11 +1,16 @@
 import { google } from 'googleapis';
 import { User } from '../models/User';
 import { Schedule } from '../models/Schedule';
+import { encrypt, decrypt } from '../utils/crypto';
 
 const getOAuth2Client = () => {
-  const clientId = process.env.GOOGLE_CLIENT_ID || 'fallback_google_client_id';
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || 'fallback_google_client_secret';
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth not configured: Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env');
+  }
 
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 };
@@ -35,8 +40,8 @@ export const handleGoogleOAuthCallback = async (code: string, userId: string) =>
   }
 
   const updatedTokens = {
-    access_token: tokens.access_token || user.googleTokens?.access_token || null,
-    refresh_token: tokens.refresh_token || user.googleTokens?.refresh_token || null,
+    access_token: tokens.access_token ? encrypt(tokens.access_token) : (user.googleTokens?.access_token || null),
+    refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : (user.googleTokens?.refresh_token || null),
     expiry_date: tokens.expiry_date || user.googleTokens?.expiry_date || null,
     token_type: tokens.token_type || user.googleTokens?.token_type || null,
   };
@@ -59,8 +64,8 @@ export const getAuthenticatedCalendarClient = async (userId: string) => {
 
   const oauth2Client = getOAuth2Client();
   oauth2Client.setCredentials({
-    access_token: user.googleTokens.access_token || undefined,
-    refresh_token: user.googleTokens.refresh_token || undefined,
+    access_token: user.googleTokens.access_token ? decrypt(user.googleTokens.access_token) : undefined,
+    refresh_token: user.googleTokens.refresh_token ? decrypt(user.googleTokens.refresh_token) : undefined,
     expiry_date: user.googleTokens.expiry_date || undefined,
     token_type: user.googleTokens.token_type || undefined,
   });
@@ -69,8 +74,8 @@ export const getAuthenticatedCalendarClient = async (userId: string) => {
   oauth2Client.on('tokens', async (newTokens) => {
     if (user.googleTokens) {
       user.googleTokens = {
-        access_token: newTokens.access_token || user.googleTokens.access_token,
-        refresh_token: newTokens.refresh_token || user.googleTokens.refresh_token,
+        access_token: newTokens.access_token ? encrypt(newTokens.access_token) : user.googleTokens.access_token,
+        refresh_token: newTokens.refresh_token ? encrypt(newTokens.refresh_token) : user.googleTokens.refresh_token,
         expiry_date: newTokens.expiry_date || user.googleTokens.expiry_date,
         token_type: newTokens.token_type || user.googleTokens.token_type,
       };
@@ -98,26 +103,29 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
       $or: [{ 'recurrence.type': { $exists: false } }, { 'recurrence.type': 'none' }],
     });
 
-    for (const schedule of localSchedules) {
+    // Batch helper: process items in chunks of `size` concurrently
+    const processBatch = async <T>(items: T[], size: number, fn: (item: T) => Promise<void>) => {
+      for (let i = 0; i < items.length; i += size) {
+        const batch = items.slice(i, i + size);
+        await Promise.all(batch.map(fn));
+      }
+    };
+
+    // PUSH each local schedule to Google (batched, 5 concurrent)
+    await processBatch(localSchedules, 5, async (schedule) => {
       const eventPayload = {
         summary: schedule.title,
         description: schedule.description || '',
-        start: {
-          dateTime: new Date(schedule.startTime).toISOString(),
-        },
-        end: {
-          dateTime: new Date(schedule.endTime).toISOString(),
-        },
+        start: { dateTime: new Date(schedule.startTime).toISOString() },
+        end: { dateTime: new Date(schedule.endTime).toISOString() },
       };
 
       if (!schedule.googleEventId) {
-        // Insert new event into Google Calendar
         try {
           const createdGEvent = await calendar.events.insert({
             calendarId: 'primary',
             requestBody: eventPayload,
           });
-
           if (createdGEvent.data && createdGEvent.data.id) {
             schedule.googleEventId = createdGEvent.data.id;
             schedule.syncedWithGoogle = true;
@@ -127,21 +135,19 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
           console.error(`Failed to push schedule ${schedule._id} to Google:`, err.message);
         }
       } else if (!schedule.syncedWithGoogle) {
-        // Update existing event on Google Calendar
         try {
           await calendar.events.patch({
             calendarId: 'primary',
             eventId: schedule.googleEventId,
             requestBody: eventPayload,
           });
-
           schedule.syncedWithGoogle = true;
           await schedule.save();
         } catch (err: any) {
           console.error(`Failed to update schedule ${schedule._id} on Google:`, err.message);
         }
       }
-    }
+    });
 
     // -------------------------------------------------------------
     // STEP 2: PULL (Google Calendar -> Local MongoDB Schedules)
@@ -159,18 +165,18 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
 
     const googleItems = gEventsList.data.items || [];
 
-    for (const gEvent of googleItems) {
+    // PULL each Google event to local DB (batched, 5 concurrent)
+    await processBatch(googleItems, 5, async (gEvent) => {
       if (!gEvent.id || gEvent.status === 'cancelled') {
-        // Handle deletion if needed
         if (gEvent.id) {
           await Schedule.deleteMany({ createdBy: userId, googleEventId: gEvent.id });
         }
-        continue;
+        return;
       }
 
       const gStart = gEvent.start?.dateTime || gEvent.start?.date;
       const gEnd = gEvent.end?.dateTime || gEvent.end?.date;
-      if (!gStart || !gEnd) continue;
+      if (!gStart || !gEnd) return;
 
       const startTime = new Date(gStart);
       const endTime = new Date(gEnd);
@@ -181,12 +187,10 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
       });
 
       if (!existingLocal) {
-        // Create new local schedule if not already present
         await Schedule.create({
           title: gEvent.summary || 'Google Event',
           description: gEvent.description || '',
-          startTime,
-          endTime,
+          startTime, endTime,
           color: '#1890ff',
           category: 'Google Sync',
           createdBy: userId,
@@ -194,7 +198,6 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
           syncedWithGoogle: true,
         });
       } else {
-        // Update local schedule if Google event changed
         existingLocal.title = gEvent.summary || existingLocal.title;
         existingLocal.description = gEvent.description || existingLocal.description || '';
         existingLocal.startTime = startTime;
@@ -202,7 +205,7 @@ export const syncGoogleCalendar2Way = async (userId: string) => {
         existingLocal.syncedWithGoogle = true;
         await existingLocal.save();
       }
-    }
+    });
 
     user.lastGoogleSyncAt = new Date();
     await user.save();

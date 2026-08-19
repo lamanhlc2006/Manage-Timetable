@@ -65,8 +65,20 @@ export const syncOfflineQueue = async (): Promise<number> => {
       if (item.type === 'create' && item.payload) {
         await createSchedule(item.payload);
       } else if (item.type === 'update' && item.scheduleId && item.payload) {
+        // Skip update for offline-created events (no real server ID yet)
+        if (item.scheduleId.startsWith('offline-')) {
+          console.warn(`Skipping update sync for offline event: ${item.scheduleId}`);
+          syncedCount++;
+          continue;
+        }
         await updateSchedule(item.scheduleId, item.payload);
       } else if (item.type === 'delete' && item.scheduleId) {
+        // Skip delete for offline-created events (never existed on server)
+        if (item.scheduleId.startsWith('offline-')) {
+          console.warn(`Skipping delete sync for offline event: ${item.scheduleId}`);
+          syncedCount++;
+          continue;
+        }
         await deleteSchedule(item.scheduleId);
       }
       syncedCount++;

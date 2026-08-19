@@ -5,15 +5,18 @@ import jwt from 'jsonwebtoken';
 let io: SocketIOServer | null = null;
 
 export const initSocket = (httpServer: HttpServer): SocketIOServer => {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
+  const rawOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
     : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
+
+  // Filter out wildcard '*' — not allowed with credentials: true (CORS spec violation)
+  const allowedOrigins = rawOrigins.filter(o => o.trim() !== '*');
 
   io = new SocketIOServer(httpServer, {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+        if (allowedOrigins.indexOf(origin) !== -1) {
           callback(null, true);
         } else {
           callback(new Error('Not allowed by CORS'));
@@ -35,9 +38,13 @@ export const initSocket = (httpServer: HttpServer): SocketIOServer => {
         return next(new Error('Authentication error: Token missing'));
       }
 
+      if (!process.env.JWT_SECRET) {
+        return next(new Error('Authentication error: JWT_SECRET is not configured'));
+      }
+
       const decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET || 'fallback_secret'
+        process.env.JWT_SECRET
       ) as { id: string };
 
       socket.data.userId = decoded.id;

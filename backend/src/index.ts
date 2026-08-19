@@ -1,80 +1,19 @@
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import cookieParser from 'cookie-parser';
+import http from 'http';
 
-// Load environment variables immediately before importing controllers/routes
+// Load environment variables immediately
 dotenv.config();
 
 import { connectDB } from './config/db';
-import authRoutes from './routes/authRoutes';
-import scheduleRoutes from './routes/scheduleRoutes';
-import userRoutes from './routes/userRoutes';
-import notificationRoutes from './routes/notificationRoutes';
-import categoryRoutes from './routes/categoryRoutes';
-import focusSessionRoutes from './routes/focusSessionRoutes';
-import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
-
-// Initialize express app
-const app = express();
+import { createApp } from './app';
+import { initSocket } from './config/socket';
+import { startReminderCron } from './services/reminderCron';
 
 // Connect to Database
 connectDB();
 
-import mongoose from 'mongoose';
-
-// Middlewares
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
-app.use(express.json()); // Body parser for JSON payloads
-app.use(cookieParser());
-
-// Middleware to verify database connectivity for API routes
-app.use('/api', (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
-    res.status(503).json({
-      message: 'Không thể kết nối đến cơ sở dữ liệu MongoDB. Vui lòng đảm bảo dịch vụ MongoDB (mongod) đang hoạt động trên máy chủ.',
-    });
-    return;
-  }
-  next();
-});
-
-import { globalErrorHandler } from './middlewares/errorHandler';
-
-// Routes
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/schedules', scheduleLimiter, scheduleRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/focus-sessions', focusSessionRoutes);
-
-// Root route for simple API check
-app.get('/', (req, res) => {
-  res.send('Timetable Management API is running...');
-});
-
-// Global Error Handler Middleware
-app.use(globalErrorHandler);
-
-import http from 'http';
-import { initSocket } from './config/socket';
-import { startReminderCron } from './services/reminderCron';
+// Create Express app
+const app = createApp();
 
 // Create HTTP server
 const server = http.createServer(app);

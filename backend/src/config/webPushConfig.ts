@@ -4,15 +4,19 @@ import { PushSubscription } from '../models/PushSubscription';
 
 dotenv.config();
 
-// VAPID Keys setup (Read from env or use pre-generated fallback keys)
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BCc5yX7B2K8wZ4mQ1vL9xP3oR7sT2uV8wZ4mQ1vL9xP3oR7sT2uV8wZ4mQ1vL9xP3oR7sT2uV8wZ4mQ1vL9xP3o';
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v';
+// VAPID Keys setup (MUST be configured via environment variables)
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO || 'mailto:admin@manage-timetable.com',
-  vapidPublicKey,
-  vapidPrivateKey
-);
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails(
+    process.env.VAPID_MAILTO || 'mailto:admin@manage-timetable.com',
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+} else {
+  console.warn('⚠️ VAPID keys not configured. Web Push notifications will be disabled. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in .env');
+}
 
 export { vapidPublicKey, vapidPrivateKey };
 

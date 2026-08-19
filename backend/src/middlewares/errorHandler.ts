@@ -14,6 +14,13 @@ export const globalErrorHandler = (
 ): void => {
   console.error('Unhandled System Error:', err);
 
+  if (err?.name === 'TokenExpiredError' || err?.name === 'JsonWebTokenError') {
+    res.status(401).json({
+      message: 'Token đã hết hạn hoặc không hợp lệ (Token expired or invalid)',
+    });
+    return;
+  }
+
   if (
     err.name === 'CastError' ||
     err instanceof mongoose.Error.CastError ||
