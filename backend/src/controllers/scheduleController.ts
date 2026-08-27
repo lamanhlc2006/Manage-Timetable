@@ -446,6 +446,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     if (category !== undefined) updateData.category = category;
     if (tags !== undefined) updateData.tags = tags;
     if (priority !== undefined) updateData.priority = priority;
+    if (req.body.status !== undefined) updateData.status = req.body.status;
     if (recurrence !== undefined) updateData.recurrence = recurrence;
     if (startTime !== undefined) updateData.startTime = start;
     if (endTime !== undefined) updateData.endTime = end;

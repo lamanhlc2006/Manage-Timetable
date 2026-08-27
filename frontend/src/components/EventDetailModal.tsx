@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Badge, Button, Space, Tag, Popconfirm } from 'antd';
-import { FireOutlined, DeleteOutlined, EditOutlined, BellOutlined } from '@ant-design/icons';
+import { FireOutlined, DeleteOutlined, EditOutlined, BellOutlined, CheckCircleOutlined, UndoOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ScheduleEvent } from '../services/scheduleService';
@@ -11,6 +11,7 @@ interface EventDetailModalProps {
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleStatus?: (eventId: string, newStatus: 'pending' | 'completed') => Promise<void>;
   onStartPomodoro: (event: { id?: string; title: string; category?: string }) => void;
   categoriesList: { name: string; color: string; icon?: string }[];
   isAdmin?: boolean;
@@ -22,6 +23,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   onClose,
   onEdit,
   onDelete,
+  onToggleStatus,
   onStartPomodoro,
   categoriesList: _categoriesList,
   isAdmin,
@@ -109,6 +111,20 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 )}
               </td>
             </tr>
+            <tr>
+              <td style={{ padding: '8px 0', color: '#8c8c8c' }}>{t('calendar.statusLabel')}</td>
+              <td style={{ padding: '8px 0' }}>
+                {event.status === 'completed' ? (
+                  <Tag color="success" icon={<CheckCircleOutlined />} style={{ borderRadius: '12px', fontSize: '13px' }}>
+                    {t('calendar.statusCompleted')}
+                  </Tag>
+                ) : (
+                  <Tag color="default" style={{ borderRadius: '12px', fontSize: '13px' }}>
+                    {t('calendar.statusPending')}
+                  </Tag>
+                )}
+              </td>
+            </tr>
             {event.recurrence && event.recurrence.type !== 'none' && (
               <tr>
                 <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Chu kỳ lặp:</td>
@@ -157,22 +173,40 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
           </tbody>
         </table>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-          <Button
-            type="default"
-            danger
-            icon={<FireOutlined />}
-            onClick={() => {
-              onStartPomodoro({
-                id: event._id,
-                title: event.title,
-                category: event.category,
-              });
-            }}
-            style={{ borderRadius: '6px' }}
-          >
-            Tập trung (Pomodoro)
-          </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button
+              type="default"
+              danger
+              icon={<FireOutlined />}
+              onClick={() => {
+                onStartPomodoro({
+                  id: event._id,
+                  title: event.title,
+                  category: event.category,
+                });
+              }}
+              style={{ borderRadius: '6px' }}
+            >
+              {t('calendar.focusPomodoro')}
+            </Button>
+            {canModifyEvent && onToggleStatus && (
+              <Button
+                type={event.status === 'completed' ? 'default' : 'primary'}
+                icon={event.status === 'completed' ? <UndoOutlined /> : <CheckCircleOutlined />}
+                onClick={() => onToggleStatus(
+                  event._id,
+                  event.status === 'completed' ? 'pending' : 'completed'
+                )}
+                style={{
+                  borderRadius: '6px',
+                  ...(event.status !== 'completed' ? { background: '#52c41a', borderColor: '#52c41a' } : {}),
+                }}
+              >
+                {event.status === 'completed' ? t('calendar.markPending') : t('calendar.markCompleted')}
+              </Button>
+            )}
+          </div>
 
           {canModifyEvent ? (
             <div style={{ display: 'flex', gap: '12px' }}>

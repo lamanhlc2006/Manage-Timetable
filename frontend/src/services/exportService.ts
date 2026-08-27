@@ -58,22 +58,66 @@ export const downloadIcsFile = async (): Promise<void> => {
   link.remove();
 };
 
-export const downloadPdfReport = (schedules: ScheduleEvent[], docTitle: string = 'BAO CAO LICH TRINH'): void => {
+/**
+ * Loads a font file from the given URL and returns its Base64 string.
+ */
+const loadFontAsBase64 = async (url: string): Promise<string> => {
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+// Cache loaded fonts to avoid re-fetching
+let fontCache: { regular?: string; bold?: string } = {};
+
+const ensureFontsLoaded = async (): Promise<{ regular: string; bold: string }> => {
+  if (fontCache.regular && fontCache.bold) {
+    return fontCache as { regular: string; bold: string };
+  }
+  const [regular, bold] = await Promise.all([
+    loadFontAsBase64('/fonts/Roboto-Regular.ttf'),
+    loadFontAsBase64('/fonts/Roboto-Bold.ttf'),
+  ]);
+  fontCache = { regular, bold };
+  return { regular, bold };
+};
+
+const registerFonts = (doc: jsPDF, fonts: { regular: string; bold: string }) => {
+  doc.addFileToVFS('Roboto-Regular.ttf', fonts.regular);
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+  doc.addFileToVFS('Roboto-Bold.ttf', fonts.bold);
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+};
+
+export const downloadPdfReport = async (schedules: ScheduleEvent[], docTitle: string = 'BÁO CÁO LỊCH TRÌNH CÁ NHÂN'): Promise<void> => {
+  // Load Vietnamese-compatible fonts
+  const fonts = await ensureFontsLoaded();
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
+  // Register Roboto fonts for Vietnamese Unicode support
+  registerFonts(doc, fonts);
+
   // Title Header
+  doc.setFont('Roboto', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(24, 144, 255); // #1890ff
   doc.text(docTitle, 14, 20);
 
+  doc.setFont('Roboto', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Ngay xuat: ${dayjs().format('DD/MM/YYYY HH:mm')}`, 14, 27);
-  doc.text(`Tong so su kien: ${schedules.length}`, 14, 32);
+  doc.text(`Ngày xuất: ${dayjs().format('DD/MM/YYYY HH:mm')}`, 14, 27);
+  doc.text(`Tổng số sự kiện: ${schedules.length}`, 14, 32);
 
   doc.setLineWidth(0.5);
   doc.setDrawColor(220, 220, 220);
@@ -81,28 +125,37 @@ export const downloadPdfReport = (schedules: ScheduleEvent[], docTitle: string =
 
   let y = 44;
 
+  const priorityMap: Record<string, string> = {
+    high: 'Cao',
+    medium: 'Trung bình',
+    low: 'Thấp',
+  };
+
   schedules.forEach((item, index) => {
     if (y > 270) {
       doc.addPage();
       y = 20;
     }
 
+    doc.setFont('Roboto', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(30, 30, 30);
     const titleText = `${index + 1}. ${item.title}`;
     doc.text(titleText, 14, y);
 
+    doc.setFont('Roboto', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
     const timeRange = `${dayjs(item.startTime).format('HH:mm DD/MM/YYYY')} - ${dayjs(item.endTime).format('HH:mm DD/MM/YYYY')}`;
-    doc.text(`Thoi gian: ${timeRange}`, 14, y + 5);
+    doc.text(`Thời gian: ${timeRange}`, 14, y + 5);
 
-    const meta = `Danh muc: ${item.category || 'N/A'} | Uu tien: ${item.priority || 'medium'} ${item.tags && item.tags.length ? '| Tags: ' + item.tags.join(', ') : ''}`;
+    const priorityText = priorityMap[item.priority || 'medium'] || 'Trung bình';
+    const meta = `Danh mục: ${item.category || 'N/A'} | Ưu tiên: ${priorityText} ${item.tags && item.tags.length ? '| Tags: ' + item.tags.join(', ') : ''}`;
     doc.text(meta, 14, y + 10);
 
     if (item.description) {
       doc.setTextColor(80, 80, 80);
-      doc.text(`Ghi chu: ${item.description.substring(0, 80)}`, 14, y + 15);
+      doc.text(`Ghi chú: ${item.description.substring(0, 80)}`, 14, y + 15);
       y += 22;
     } else {
       y += 17;

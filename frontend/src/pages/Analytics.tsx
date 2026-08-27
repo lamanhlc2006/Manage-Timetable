@@ -4,7 +4,6 @@ import { Column, Pie } from '@ant-design/charts';
 import {
   ClockCircleOutlined,
   CalendarOutlined,
-  AppstoreOutlined,
   RiseOutlined,
   FireOutlined,
   CheckCircleOutlined,
@@ -56,11 +55,13 @@ export const Analytics: React.FC = () => {
     loadData();
   }, [timeFilter]);
 
-  // Aggregate statistics
   const stats = useMemo(() => {
     let totalHours = 0;
-    const categoryMap: { [cat: string]: number } = {};
+    let completedHours = 0;
+    let completedCount = 0;
     const dayOfWeekMap: { [day: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
+    const completedDayOfWeekMap: { [day: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
+    const categoryMap: { [cat: string]: number } = {};
 
     schedules.forEach((sch) => {
       const start = new Date(sch.startTime);
@@ -74,6 +75,12 @@ export const Analytics: React.FC = () => {
 
       const dayIndex = start.getDay();
       dayOfWeekMap[dayIndex] = (dayOfWeekMap[dayIndex] || 0) + durationHours;
+
+      if (sch.status === 'completed') {
+        completedHours += durationHours;
+        completedCount++;
+        completedDayOfWeekMap[dayIndex] = (completedDayOfWeekMap[dayIndex] || 0) + durationHours;
+      }
     });
 
     const dayLabels: { [key: number]: string } = {
@@ -91,9 +98,9 @@ export const Analytics: React.FC = () => {
       hours: Number((dayOfWeekMap[d] || 0).toFixed(1)),
     }));
 
-    const categoryPieData = Object.keys(categoryMap).map((cat) => ({
-      category: cat,
-      hours: Number((categoryMap[cat] || 0).toFixed(1)),
+    const completedWeeklyColumnData = [1, 2, 3, 4, 5, 6, 0].map((d) => ({
+      day: dayLabels[d],
+      hours: Number((completedDayOfWeekMap[d] || 0).toFixed(1)),
     }));
 
     // Find top category
@@ -106,12 +113,19 @@ export const Analytics: React.FC = () => {
       }
     });
 
+    const completionRate = schedules.length > 0
+      ? Number(((completedCount / schedules.length) * 100).toFixed(1))
+      : 0;
+
     return {
       totalHours: Number(totalHours.toFixed(1)),
       totalCount: schedules.length,
       topCategory: topCat,
       weeklyColumnData,
-      categoryPieData,
+      completedWeeklyColumnData,
+      completedCount,
+      completedHours: Number(completedHours.toFixed(1)),
+      completionRate,
     };
   }, [schedules]);
 
@@ -133,18 +147,22 @@ export const Analytics: React.FC = () => {
     },
   };
 
-  // Pie Chart Configuration
-  const pieConfig = {
-    appendPadding: 10,
-    data: stats.categoryPieData,
-    angleField: 'hours',
-    colorField: 'category',
-    radius: 0.8,
+  // Completed Hours Column Chart Configuration
+  const completedColumnConfig = {
+    data: stats.completedWeeklyColumnData,
+    xField: 'day',
+    yField: 'hours',
     label: {
-      type: 'outer',
-      content: '{name}: {percentage}',
+      position: 'top',
+      style: {
+        fill: '#52c41a',
+        opacity: 0.8,
+      },
     },
-    interactions: [{ type: 'element-active' }],
+    color: '#52c41a',
+    columnStyle: {
+      radius: [4, 4, 0, 0],
+    },
   };
 
   // Focus Category Pie Chart Config
@@ -225,19 +243,20 @@ export const Analytics: React.FC = () => {
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#fff7e6', borderRadius: '10px' }}>
                 <Statistic
-                  title={t('analytics.topCategory')}
-                  value={stats.topCategory}
-                  prefix={<AppstoreOutlined style={{ color: '#fa8c16' }} />}
-                  valueStyle={{ color: '#fa8c16', fontWeight: 'bold', fontSize: '20px' }}
+                  title={t('analytics.completedEvents')}
+                  value={stats.completedCount}
+                  suffix={`/ ${stats.totalCount}`}
+                  prefix={<CheckCircleOutlined style={{ color: '#fa8c16' }} />}
+                  valueStyle={{ color: '#fa8c16', fontWeight: 'bold' }}
                 />
               </Card>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <Card variant="borderless" style={{ background: '#f9f0ff', borderRadius: '10px' }}>
                 <Statistic
-                  title={t('analytics.dailyAverage')}
-                  value={Number((stats.totalHours / (timeFilter === '7days' ? 7 : 30)).toFixed(1))}
-                  suffix="h/d"
+                  title={t('analytics.completionRate')}
+                  value={stats.completionRate}
+                  suffix="%"
                   prefix={<RiseOutlined style={{ color: '#722ed1' }} />}
                   valueStyle={{ color: '#722ed1', fontWeight: 'bold' }}
                 />
@@ -265,15 +284,15 @@ export const Analytics: React.FC = () => {
 
             <Col xs={24} lg={12}>
               <Card
-                title={t('analytics.categoryDistribution')}
+                title={t('analytics.completedHoursWeekly')}
                 variant="borderless"
                 style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               >
-                {stats.totalCount === 0 ? (
+                {stats.completedCount === 0 ? (
                   <Empty description={t('analytics.noData')} />
                 ) : (
                   <div style={{ height: 300 }}>
-                    <Pie {...(pieConfig as any)} />
+                    <Column {...(completedColumnConfig as any)} />
                   </div>
                 )}
               </Card>

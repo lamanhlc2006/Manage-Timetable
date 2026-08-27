@@ -26,6 +26,7 @@ export interface ScheduleEvent {
   category?: string;
   tags?: string[];
   priority?: 'low' | 'medium' | 'high';
+  status?: 'pending' | 'completed' | 'cancelled';
   createdBy: UserRef;
   recurrence?: RecurrenceSettings;
   isException?: boolean;

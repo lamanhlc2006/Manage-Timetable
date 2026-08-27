@@ -62,6 +62,7 @@ export const updateScheduleSchema = z
     category: z.string().optional(),
     tags: z.array(z.string()).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
+    status: z.enum(['pending', 'completed', 'cancelled']).optional(),
     recurrence: recurrenceSchema.optional(),
     recurrenceEditMode: z.enum(['all', 'current', 'future']).optional(),
     reminderMinutes: z.number().nullable().optional(),

@@ -40,6 +40,11 @@ const ScheduleSchema = new Schema<ISchedule>(
       enum: ['low', 'medium', 'high'],
       default: 'medium',
     },
+    status: {
+      type: String,
+      enum: ['pending', 'completed', 'cancelled'],
+      default: 'pending',
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',

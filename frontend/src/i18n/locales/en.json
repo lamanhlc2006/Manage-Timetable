@@ -112,6 +112,10 @@
     "recurrenceCustom": "Custom",
     "recurrenceIntervalLabel": "Repeat interval",
     "repeatEvery": "Every {{count}} interval",
+    "repeatUnitDay": "Every {{count}} day(s)",
+    "repeatUnitWeek": "Every {{count}} week(s)",
+    "repeatUnitMonth": "Every {{count}} month(s)",
+    "repeatUnitInterval": "Every {{count}} interval(s)",
     "recurrenceDaysOfWeekLabel": "Repeat on days",
     "selectDaysPlaceholder": "Select days of week",
     "dayMon": "Monday",
@@ -184,7 +188,15 @@
     "categoryActionError": "Category operation failed",
     "deleteCategoryError": "Failed to delete category",
     "quickAddSuccess": "Quick add schedule created successfully!",
-    "quickAddSuccessForce": "Quick add schedule created successfully (Force save)!"
+    "quickAddSuccessForce": "Quick add schedule created successfully (Force save)!",
+    "createNew": "Create New",
+    "saveChanges": "Save Changes",
+    "forever": "Forever (no end date)",
+    "statusPending": "Pending",
+    "statusCompleted": "Completed",
+    "markCompleted": "Mark as Completed",
+    "markPending": "Mark as Pending",
+    "statusLabel": "Status:"
   },
   "pomodoro": {
     "title": "Pomodoro Focus Timer",
@@ -234,7 +246,10 @@
     "focusCategoryDistribution": "Focus Time Allocation by Category",
     "focusDetailTable": "Focus Session Breakdown",
     "noFocusData": "No completed Pomodoro sessions in this period",
-    "noData": "No data available in this period"
+    "noData": "No data available in this period",
+    "completionRate": "Completion Rate",
+    "completedHoursWeekly": "Completed Hours by Day of Week",
+    "completedEvents": "Completed Events"
   },
   "settings": {
     "title": "System Settings",
@@ -252,7 +267,16 @@
     "categoryName": "Category Name",
     "color": "Color",
     "icon": "Emoji Icon",
-    "systemCategory": "System Category (Protected)"
+    "systemCategory": "System Category (Protected)",
+    "tagManagement": "Tag Management",
+    "addTag": "Add New Tag",
+    "tagName": "Tag Name",
+    "tagNamePlaceholder": "e.g.: deadline, exam, important...",
+    "tagNameRequired": "Please enter a tag name!",
+    "tagColorRequired": "Please select a color!",
+    "createTagSuccess": "New tag created successfully!",
+    "updateTagSuccess": "Tag updated successfully!",
+    "deleteTagSuccess": "Tag deleted!"
   },
   "userMgmt": {
     "title": "User Management (Admin)",

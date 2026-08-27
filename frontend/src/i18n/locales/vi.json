@@ -112,6 +112,10 @@
     "recurrenceCustom": "Tùy chỉnh (Custom)",
     "recurrenceIntervalLabel": "Chu kỳ lặp",
     "repeatEvery": "Mỗi {{count}} lần lặp",
+    "repeatUnitDay": "Mỗi {{count}} ngày",
+    "repeatUnitWeek": "Mỗi {{count}} tuần",
+    "repeatUnitMonth": "Mỗi {{count}} tháng",
+    "repeatUnitInterval": "Mỗi {{count}} lần lặp",
     "recurrenceDaysOfWeekLabel": "Lặp vào các ngày",
     "selectDaysPlaceholder": "Chọn các ngày trong tuần",
     "dayMon": "Thứ 2",
@@ -184,7 +188,15 @@
     "categoryActionError": "Lỗi thao tác danh mục",
     "deleteCategoryError": "Không thể xóa danh mục",
     "quickAddSuccess": "Tạo nhanh lịch trình thành công!",
-    "quickAddSuccessForce": "Tạo nhanh lịch trình thành công (Bỏ qua trùng lặp)!"
+    "quickAddSuccessForce": "Tạo nhanh lịch trình thành công (Bỏ qua trùng lặp)!",
+    "createNew": "Tạo mới",
+    "saveChanges": "Lưu thay đổi",
+    "forever": "Vĩnh viễn (không kết thúc)",
+    "statusPending": "Chưa hoàn thành",
+    "statusCompleted": "Đã hoàn thành",
+    "markCompleted": "Đánh dấu hoàn thành",
+    "markPending": "Đánh dấu chưa hoàn thành",
+    "statusLabel": "Trạng thái:"
   },
   "pomodoro": {
     "title": "Pomodoro Focus Timer",
@@ -234,7 +246,10 @@
     "focusCategoryDistribution": "Phân Bổ Thời Gian Focus Theo Danh Mục",
     "focusDetailTable": "Bảng Chi Tiết Lượt Tập Trung",
     "noFocusData": "Chưa có phiên Pomodoro nào hoàn thành trong khoảng thời gian này",
-    "noData": "Không có dữ liệu trong khoảng thời gian này"
+    "noData": "Không có dữ liệu trong khoảng thời gian này",
+    "completionRate": "Tỷ lệ hoàn thành",
+    "completedHoursWeekly": "Tổng Giờ Hoàn Thành Theo Tuần (Theo Thứ)",
+    "completedEvents": "Sự kiện đã hoàn thành"
   },
   "settings": {
     "title": "Cài Đặt Hệ Thống",
@@ -252,7 +267,16 @@
     "categoryName": "Tên danh mục",
     "color": "Màu sắc",
     "icon": "Biểu tượng Emoji",
-    "systemCategory": "Danh mục hệ thống (Không thể xóa)"
+    "systemCategory": "Danh mục hệ thống (Không thể xóa)",
+    "tagManagement": "Quản lý thẻ Tag",
+    "addTag": "Thêm thẻ tag mới",
+    "tagName": "Tên thẻ tag",
+    "tagNamePlaceholder": "Ví dụ: deadline, exam, important...",
+    "tagNameRequired": "Vui lòng nhập tên thẻ tag!",
+    "tagColorRequired": "Vui lòng chọn màu sắc!",
+    "createTagSuccess": "Tạo thẻ tag mới thành công!",
+    "updateTagSuccess": "Cập nhật thẻ tag thành công!",
+    "deleteTagSuccess": "Đã xóa thẻ tag!"
   },
   "userMgmt": {
     "title": "Quản Lý Người Dùng (Admin)",

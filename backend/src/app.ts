@@ -8,6 +8,7 @@ import scheduleRoutes from './routes/scheduleRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+import tagRoutes from './routes/tagRoutes';
 import focusSessionRoutes from './routes/focusSessionRoutes';
 import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
 import { globalErrorHandler } from './middlewares/errorHandler';
@@ -55,6 +56,7 @@ export const createApp = () => {
   app.use('/api/users', userRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/categories', categoryRoutes);
+  app.use('/api/tags', tagRoutes);
   app.use('/api/focus-sessions', focusSessionRoutes);
 
   app.get('/', (req, res) => {

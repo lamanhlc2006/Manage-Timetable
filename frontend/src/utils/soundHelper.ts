@@ -1,6 +1,6 @@
-// Web Audio API Synthesizer for Pomodoro timer notifications
+// Web Audio API Synthesizer for Pomodoro timer & reminder notifications
 
-export const playChimeSound = (type: 'focusComplete' | 'breakComplete' | 'tick' = 'focusComplete') => {
+export const playChimeSound = (type: 'focusComplete' | 'breakComplete' | 'tick' | 'reminder' = 'focusComplete') => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -60,6 +60,25 @@ export const playChimeSound = (type: 'focusComplete' | 'breakComplete' | 'tick' 
 
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.04);
+    } else if (type === 'reminder') {
+      // Soft bell-like reminder chime (E6 → A6)
+      const notes = [1318.51, 1760.0];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.25);
+
+        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.25);
+        gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + idx * 0.25 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.25 + 0.6);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + idx * 0.25);
+        osc.stop(ctx.currentTime + idx * 0.25 + 0.65);
+      });
     }
   } catch (err) {
     console.warn('AudioContext sound generation warning:', err);

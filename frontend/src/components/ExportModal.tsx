@@ -24,7 +24,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ visible, onClose, sche
   const [rangeType, setRangeType] = useState<'all' | 'this_week' | 'this_month' | 'custom'>('this_month');
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     let filteredSchedules = [...schedules];
     const now = dayjs();
 
@@ -65,10 +65,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ visible, onClose, sche
         downloadCsvReport(filteredSchedules, `timetable-export-${timestamp}.csv`);
         message.success(`Đã xuất thành công file CSV (${filteredSchedules.length} sự kiện)`);
       } else if (format === 'ics') {
-        downloadIcsFile();
+        await downloadIcsFile();
         message.success('Đã xuất thành công file iCalendar (.ics)');
       } else if (format === 'pdf') {
-        downloadPdfReport(filteredSchedules, 'BÁO CÁO LỊCH TRÌNH CÁ NHÂN');
+        await downloadPdfReport(filteredSchedules, 'BÁO CÁO LỊCH TRÌNH CÁ NHÂN');
         message.success(`Đã xuất thành công báo cáo PDF (${filteredSchedules.length} sự kiện)`);
       }
 

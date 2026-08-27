@@ -20,6 +20,7 @@ interface EventFormModalProps {
   mode: 'create' | 'edit';
   event: ScheduleEvent | null;
   categoriesList: { _id?: string; name: string; color: string; icon?: string }[];
+  tagsList?: { _id: string; name: string; color: string }[];
   onClose: () => void;
   onSubmit: (values: any, mode: 'create' | 'edit') => Promise<void>;
   recurrenceEditMode?: 'all' | 'current' | 'future';
@@ -32,9 +33,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   mode,
   event,
   categoriesList,
+  tagsList = [],
   onClose,
   onSubmit,
-  recurrenceEditMode = 'all',
+  recurrenceEditMode: _recurrenceEditMode = 'all',
   instanceDate: _instanceDate,
   onManageCategories,
 }) => {
@@ -108,89 +110,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         return;
       }
 
-      const recurrenceType = values.recurrenceType;
-      const recurrence =
-        recurrenceType && recurrenceType !== 'none'
-          ? {
-              type: recurrenceType,
-              interval: values.recurrenceInterval || 1,
-              daysOfWeek: (recurrenceType === 'weekly' || recurrenceType === 'custom') ? values.recurrenceDaysOfWeek : undefined,
-              endDate: values.recurrenceEndDate ? values.recurrenceEndDate.toISOString() : undefined,
-            }
-          : undefined;
-
-      const inputData = {
-        title: values.title.trim(),
-        description: values.description ? values.description.trim() : '',
-        startTime: startDayjs.toISOString(),
-        endTime: endDayjs.toISOString(),
-        color: values.color,
-        category: values.category,
-        tags: values.tags,
-        priority: values.priority,
-        recurrence,
-        reminderMinutes: values.reminderMinutes !== undefined ? values.reminderMinutes : null,
-      };
-
-      const executeSave = async (forceOption = false) => {
-        const payload: any = {
-          ...inputData,
-          force: forceOption,
-        };
-        
-        if (mode === 'edit' && event) {
-          payload.recurrenceEditMode = recurrenceEditMode;
-          payload.instanceDate = (recurrenceEditMode === 'current' || recurrenceEditMode === 'future') ? event.startTime : undefined;
-        }
-
-        await onSubmit(payload, mode);
-        message.success(
-          mode === 'create'
-            ? forceOption ? t('calendar.createSuccessForce') : t('calendar.createSuccess')
-            : forceOption ? t('calendar.updateSuccessForce') : t('calendar.updateSuccess')
-        );
-        onClose();
-      };
-
-      try {
-        await executeSave(false);
-      } catch (err: any) {
-        if (err.response && err.response.status === 409 && err.response.data && err.response.data.conflicts) {
-          Modal.confirm({
-            title: t('calendar.conflictWarningTitle'),
-            content: (
-              <div>
-                <p>{t('calendar.conflictWarningSub')}</p>
-                <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
-                  {err.response.data.conflicts.map((conflict: any) => (
-                    <li key={conflict._id} style={{ marginBottom: '8px' }}>
-                      <strong style={{ color: conflict.color }}>{conflict.title}</strong>
-                      <div style={{ fontSize: '11px', color: '#666' }}>
-                        {dayjs(conflict.startTime).format('HH:mm DD/MM/YYYY')} - {dayjs(conflict.endTime).format('HH:mm DD/MM/YYYY')}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <p style={{ marginTop: '12px', fontWeight: 500, color: '#ff4d4f' }}>
-                  {t('calendar.conflictWarningConfirm')}
-                </p>
-              </div>
-            ),
-            okText: t('calendar.forceSave'),
-            okType: 'danger',
-            cancelText: t('common.cancel'),
-            onOk: async () => {
-              await executeSave(true);
-            },
-          });
-        } else {
-          throw err;
-        }
-      }
+      // Pass raw form values to parent handler — let parent handle save/conflict/close logic
+      await onSubmit(values, mode);
     } catch (err: any) {
-      if (err.errorFields) return;
+      if (err.errorFields) return; // form validation error, antd handles display
       console.error(err);
-      if (err.response && err.response.data && err.response.data.message) {
+      if (err.response?.data?.message) {
         message.error(err.response.data.message);
       } else {
         message.error('Đã xảy ra lỗi, vui lòng thử lại.');
@@ -270,7 +195,24 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             placeholder={t('calendar.tagsPlaceholder')}
             style={{ width: '100%' }}
             tokenSeparators={[',', ' ']}
-          />
+          >
+            {tagsList.map((tag) => (
+              <Option key={tag._id} value={tag.name}>
+                <Space>
+                  <span
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: tag.color,
+                      display: 'inline-block',
+                    }}
+                  />
+                  {tag.name}
+                </Space>
+              </Option>
+            ))}
+          </Select>
         </Form.Item>
 
         <Form.Item
@@ -353,11 +295,17 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           {({ getFieldValue }) => {
             const type = getFieldValue('recurrenceType');
             if (type && type !== 'none') {
+              const unitKey =
+                type === 'daily' ? 'calendar.repeatUnitDay'
+                : type === 'weekly' ? 'calendar.repeatUnitWeek'
+                : type === 'monthly' ? 'calendar.repeatUnitMonth'
+                : 'calendar.repeatUnitInterval';
+
               return (
                 <Space
                   direction="vertical"
                   style={{
-                    width: '100%',
+                    width: 'calc(100% - 30px)',
                     background: '#fafafa',
                     padding: '16px',
                     borderRadius: '8px',
@@ -367,10 +315,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 >
                   <Form.Item name="recurrenceInterval" label={t('calendar.recurrenceIntervalLabel')} initialValue={1} style={{ marginBottom: '12px' }}>
                     <Select>
-                      <Option value={1}>{t('calendar.repeatEvery', { count: 1 })}</Option>
-                      <Option value={2}>{t('calendar.repeatEvery', { count: 2 })}</Option>
-                      <Option value={3}>{t('calendar.repeatEvery', { count: 3 })}</Option>
-                      <Option value={4}>{t('calendar.repeatEvery', { count: 4 })}</Option>
+                      <Option value={1}>{t(unitKey, { count: 1 })}</Option>
+                      <Option value={2}>{t(unitKey, { count: 2 })}</Option>
+                      <Option value={3}>{t(unitKey, { count: 3 })}</Option>
+                      <Option value={4}>{t(unitKey, { count: 4 })}</Option>
                     </Select>
                   </Form.Item>
 

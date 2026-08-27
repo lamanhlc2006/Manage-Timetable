@@ -37,6 +37,7 @@ export interface ISchedule extends Document {
   category?: string;
   tags?: string[];
   priority?: 'low' | 'medium' | 'high';
+  status?: 'pending' | 'completed' | 'cancelled';
   createdBy: Types.ObjectId | IUser;
   recurrence?: IRecurrence;
   isException?: boolean;
@@ -56,6 +57,14 @@ export interface ICategory extends Document {
   icon?: string;
   createdBy?: Types.ObjectId | IUser;
   isSystem: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ITag extends Document {
+  name: string;
+  color: string;
+  createdBy: Types.ObjectId | IUser;
   createdAt: Date;
   updatedAt: Date;
 }

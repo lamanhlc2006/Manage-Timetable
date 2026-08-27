@@ -7,6 +7,7 @@ import {
   fetchCategories,
   CategoryItem,
 } from '../services/categoryService';
+import { fetchTags, TagItem } from '../services/tagService';
 import { fetchUsers } from '../services/userService';
 import {
   PlusOutlined,
@@ -84,6 +85,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   // Data states
   const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
+  const [tagsList, setTagsList] = useState<TagItem[]>([]);
   const [usersList, setUsersList] = useState<{ _id: string; username: string }[]>([]);
   const [currentRange, setCurrentRange] = useState<{ start: string; end: string } | null>(null);
 
@@ -115,6 +117,20 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  // Load tags
+  const loadTags = useCallback(async () => {
+    try {
+      const tagsData = await fetchTags();
+      setTagsList(tagsData);
+    } catch (err) {
+      console.error('Error fetching tags:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
 
   // ============ Keyboard Shortcuts ============
   useHotkeys('n', (e) => {
@@ -149,7 +165,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // ============ Map Schedules to FullCalendar Events ============
   const events = schedules.map((schedule) => ({
     id: schedule._id,
-    title: schedule.title,
+    title: schedule.status === 'completed' ? `✅ ${schedule.title}` : schedule.title,
     start: schedule.startTime,
     end: schedule.endTime,
     backgroundColor: schedule.isException ? `${schedule.color}44` : `${schedule.color}22`,
@@ -160,6 +176,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       category: schedule.category,
       tags: schedule.tags || [],
       priority: schedule.priority,
+      status: schedule.status,
       createdBy: schedule.createdBy,
       color: schedule.color,
       recurrence: schedule.recurrence,
@@ -380,6 +397,19 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     }
   };
 
+  const handleToggleStatus = async (eventId: string, newStatus: 'pending' | 'completed') => {
+    try {
+      await onUpdate(eventId, { status: newStatus, recurrenceEditMode: 'all', force: true } as any);
+      message.success(
+        newStatus === 'completed' ? t('calendar.statusCompleted') : t('calendar.statusPending')
+      );
+      setIsModalVisible(false);
+    } catch (err) {
+      console.error('Toggle status error:', err);
+      message.error(t('common.error'));
+    }
+  };
+
   const handleRecurrenceChoiceAction = async (mode: 'all' | 'current' | 'future') => {
     setIsRecurrenceChoiceVisible(false);
     if (recurrenceActionType === 'edit') {
@@ -407,9 +437,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // ============ FullCalendar Event Handlers ============
   const handleEventClick = (clickInfo: any) => {
     const extended = clickInfo.event.extendedProps;
+    const rawTitle = clickInfo.event.title;
     const schedule: ScheduleEvent = {
       _id: clickInfo.event.id,
-      title: clickInfo.event.title,
+      title: rawTitle.startsWith('✅ ') ? rawTitle.slice(2).trim() : rawTitle,
       startTime: clickInfo.event.startStr,
       endTime: clickInfo.event.endStr,
       color: extended.color,
@@ -417,6 +448,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       category: extended.category,
       tags: extended.tags || [],
       priority: extended.priority,
+      status: extended.status,
       createdBy: extended.createdBy,
       recurrence: extended.recurrence,
       isException: extended.isException,
@@ -628,6 +660,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           onClose={() => setIsModalVisible(false)}
           onEdit={handleEditInitiate}
           onDelete={handleDeleteInitiate}
+          onToggleStatus={handleToggleStatus}
           onStartPomodoro={(ev) => {
             setPomodoroInitialEvent(ev);
             setIsPomodoroOpen(true);
@@ -641,6 +674,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           mode={modalMode as 'create' | 'edit'}
           event={selectedEvent}
           categoriesList={categoriesList}
+          tagsList={tagsList}
           onClose={() => setIsModalVisible(false)}
           onSubmit={handleFormSubmit}
           recurrenceEditMode={recurrenceEditMode}

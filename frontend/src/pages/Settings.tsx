@@ -16,11 +16,13 @@ import {
   CloudSyncOutlined,
   CheckCircleOutlined,
   DisconnectOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { updateProfile, changePassword } from '../services/userService';
 import { fetchCategories, createCategory, updateCategory, deleteCategory, CategoryItem } from '../services/categoryService';
+import { fetchTags, createTagApi, updateTag, deleteTag, TagItem } from '../services/tagService';
 import {
   getGoogleAuthUrl,
   getGoogleSyncStatus,
@@ -50,6 +52,14 @@ export const Settings: React.FC = () => {
   const [editingCat, setEditingCat] = useState<CategoryItem | null>(null);
   const [catFormLoading, setCatFormLoading] = useState(false);
   const [catForm] = Form.useForm();
+
+  // Tag state
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [isTagModalVisible, setIsTagModalVisible] = useState(false);
+  const [editingTag, setEditingTag] = useState<TagItem | null>(null);
+  const [tagFormLoading, setTagFormLoading] = useState(false);
+  const [tagForm] = Form.useForm();
 
   // Google Calendar Sync state
   const [googleStatus, setGoogleStatus] = useState<GoogleSyncStatus>({
@@ -165,6 +175,81 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  const loadTags = useCallback(async () => {
+    setTagsLoading(true);
+    try {
+      const data = await fetchTags();
+      setTags(data);
+    } catch (err) {
+      console.error('Error loading tags:', err);
+    } finally {
+      setTagsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  const handleOpenCreateTag = () => {
+    setEditingTag(null);
+    setIsTagModalVisible(true);
+    setTimeout(() => {
+      tagForm.resetFields();
+      tagForm.setFieldsValue({
+        color: '#1890ff',
+      });
+    }, 0);
+  };
+
+  const handleOpenEditTag = (record: TagItem) => {
+    setEditingTag(record);
+    setIsTagModalVisible(true);
+    setTimeout(() => {
+      tagForm.setFieldsValue({
+        name: record.name,
+        color: record.color,
+      });
+    }, 0);
+  };
+
+  const handleDeleteTag = async (id: string) => {
+    try {
+      await deleteTag(id);
+      message.success(t('settings.deleteTagSuccess'));
+      loadTags();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.response?.data?.message || t('common.error'));
+    }
+  };
+
+  const handleSaveTag = async (values: any) => {
+    setTagFormLoading(true);
+    try {
+      const hexColor = typeof values.color === 'string' ? values.color : values.color.toHexString();
+      const payload = {
+        name: values.name.trim(),
+        color: hexColor,
+      };
+
+      if (editingTag) {
+        await updateTag(editingTag._id, payload);
+        message.success(t('settings.updateTagSuccess'));
+      } else {
+        await createTagApi(payload);
+        message.success(t('settings.createTagSuccess'));
+      }
+      setIsTagModalVisible(false);
+      loadTags();
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.response?.data?.message || t('common.error'));
+    } finally {
+      setTagFormLoading(false);
+    }
+  };
 
   const handleUpdateProfile = async (values: any) => {
     setProfileLoading(true);
@@ -348,6 +433,75 @@ export const Settings: React.FC = () => {
           </Space>
         );
       },
+    },
+  ];
+
+  const tagColumns = [
+    {
+      title: t('settings.tagName'),
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string, record: TagItem) => (
+        <Space>
+          <Tag
+            color={record.color}
+            style={{ borderRadius: '12px', fontSize: '13px', padding: '2px 10px' }}
+          >
+            {name}
+          </Tag>
+        </Space>
+      ),
+    },
+    {
+      title: t('settings.color'),
+      dataIndex: 'color',
+      key: 'color',
+      width: 130,
+      render: (color: string) => (
+        <Space>
+          <span
+            style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: color,
+              display: 'inline-block',
+              boxShadow: '0 0 4px rgba(0,0,0,0.15)',
+            }}
+          />
+          <code style={{ fontSize: '12px' }}>{color.toUpperCase()}</code>
+        </Space>
+      ),
+    },
+    {
+      title: t('common.actions'),
+      key: 'action',
+      width: 120,
+      align: 'right' as const,
+      render: (_: any, record: TagItem) => (
+        <Space size="middle">
+          <Button
+            type="text"
+            icon={<EditOutlined style={{ color: '#1890ff' }} />}
+            onClick={() => handleOpenEditTag(record)}
+            style={{ padding: 0 }}
+          />
+          <Popconfirm
+            title={t('common.delete') + '?'}
+            onConfirm={() => handleDeleteTag(record._id)}
+            okText={t('common.delete')}
+            cancelText={t('common.cancel')}
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              style={{ padding: 0 }}
+            />
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -536,6 +690,40 @@ export const Settings: React.FC = () => {
       ),
     },
     {
+      key: 'tags',
+      label: (
+        <span>
+          <TagsOutlined />
+          {t('settings.tagManagement')}
+        </span>
+      ),
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', marginTop: '8px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 600 }}>{t('settings.tagManagement')}</span>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreateTag}
+              style={{ borderRadius: '6px' }}
+            >
+              {t('settings.addTag')}
+            </Button>
+          </div>
+          <Table
+            columns={tagColumns}
+            dataSource={tags}
+            rowKey="_id"
+            loading={tagsLoading}
+            pagination={false}
+            size="middle"
+            bordered
+            style={{ borderRadius: '8px', overflow: 'hidden' }}
+          />
+        </div>
+      ),
+    },
+    {
       key: 'google_sync',
       label: (
         <span>
@@ -710,6 +898,48 @@ export const Settings: React.FC = () => {
             <Space>
               <Button onClick={() => setIsCatModalVisible(false)}>{t('common.cancel')}</Button>
               <Button type="primary" htmlType="submit" loading={catFormLoading}>
+                {t('common.save')}
+              </Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Tag Edit/Create Modal */}
+      <Modal
+        title={editingTag ? t('common.edit') : t('settings.addTag')}
+        open={isTagModalVisible}
+        onCancel={() => setIsTagModalVisible(false)}
+        footer={null}
+        destroyOnHidden
+        width={400}
+      >
+        <Form
+          form={tagForm}
+          layout="vertical"
+          onFinish={handleSaveTag}
+          style={{ marginTop: '16px' }}
+        >
+          <Form.Item
+            name="name"
+            label={t('settings.tagName')}
+            rules={[{ required: true, message: t('settings.tagNameRequired') }]}
+          >
+            <Input placeholder={t('settings.tagNamePlaceholder')} />
+          </Form.Item>
+
+          <Form.Item
+            name="color"
+            label={t('settings.color')}
+            rules={[{ required: true, message: t('settings.tagColorRequired') }]}
+          >
+            <ColorPicker showText />
+          </Form.Item>
+
+          <div style={{ textAlign: 'right', marginTop: '24px' }}>
+            <Space>
+              <Button onClick={() => setIsTagModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button type="primary" htmlType="submit" loading={tagFormLoading}>
                 {t('common.save')}
               </Button>
             </Space>

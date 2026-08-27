@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Layout } from 'antd';
+import { Layout, notification as antdNotification, Button } from 'antd';
 import {
   CalendarOutlined,
   UserOutlined,
   PlusCircleOutlined,
   BarChartOutlined,
   SettingOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PomodoroModal } from './PomodoroModal';
@@ -19,6 +20,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
 import { useTheme } from '../context/ThemeContext';
+import { playChimeSound } from '../utils/soundHelper';
 import api from '../services/api';
 import {
   fetchNotifications,
@@ -128,10 +130,41 @@ export const CommonLayout: React.FC = () => {
     const unsubscribe = subscribeToScheduleEvents({
       onNotificationNew: (newNotif) => {
         setNotifications((prev) => [newNotif, ...prev]);
+
+        // Show toast + play sound for reminder notifications
+        if (newNotif.type === 'reminder') {
+          playChimeSound('reminder');
+          const notifKey = `reminder_${newNotif._id || Date.now()}`;
+          antdNotification.info({
+            key: notifKey,
+            message: newNotif.title || t('nav.reminder', '⏰ Nhắc nhở'),
+            description: (
+              <div>
+                <div style={{ marginBottom: '8px' }}>{newNotif.message}</div>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<BellOutlined />}
+                  onClick={() => {
+                    antdNotification.destroy(notifKey);
+                    if (location.pathname !== '/dashboard') {
+                      navigate('/dashboard');
+                    }
+                  }}
+                >
+                  {t('nav.viewDetails', 'Xem chi tiết')}
+                </Button>
+              </div>
+            ),
+            icon: <BellOutlined style={{ color: '#faad14' }} />,
+            placement: 'topRight',
+            duration: 10,
+          });
+        }
       },
     });
     return () => { unsubscribe(); };
-  }, [userId]);
+  }, [userId, t, navigate, location.pathname]);
 
   // Upcoming events check
   useEffect(() => {
