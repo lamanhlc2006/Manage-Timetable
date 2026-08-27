@@ -12,8 +12,11 @@ import { fetchUsers } from '../services/userService';
 import {
   PlusOutlined,
   DownloadOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { PomodoroModal } from './PomodoroModal';
+import { TimelineView } from './TimelineView';
+import { TagFilterBar } from './TagFilterBar';
 import { IcsImportModal } from './IcsImportModal';
 import { ExportModal } from './ExportModal';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +48,8 @@ interface ScheduleCalendarProps {
     keyword?: string;
     categories?: string[];
     priority?: string[];
+    status?: string[];
+    tags?: string[];
     startTime?: string;
     endTime?: string;
     creator?: string;
@@ -77,6 +82,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [isImportModalVisible, setIsImportModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
 
   // Recurrence action dialog states
   const [isRecurrenceChoiceVisible, setIsRecurrenceChoiceVisible] = useState(false);
@@ -162,15 +169,83 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     setIsHelpModalVisible(true);
   }, { enableOnFormTags: false });
 
+  // --- New shortcuts (Task 2.4) ---
+  useHotkeys('e', (e) => {
+    e.preventDefault();
+    if (selectedEvent && isModalVisible && modalMode === 'view') {
+      handleEditInitiate();
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('delete, backspace', (e) => {
+    e.preventDefault();
+    if (selectedEvent && isModalVisible && modalMode === 'view') {
+      handleDeleteInitiate();
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('enter', (e) => {
+    // Only trigger when no modal is open (to avoid interfering with form submit)
+    if (!isModalVisible && !isQuickAddModalVisible && selectedEvent) {
+      e.preventDefault();
+      setModalMode('view');
+      setIsModalVisible(true);
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('left', (e) => {
+    if (!isModalVisible && !isQuickAddModalVisible) {
+      e.preventDefault();
+      calendarRef.current?.getApi().prev();
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('right', (e) => {
+    if (!isModalVisible && !isQuickAddModalVisible) {
+      e.preventDefault();
+      calendarRef.current?.getApi().next();
+    }
+  }, { enableOnFormTags: false });
+
+  useHotkeys('ctrl+f, meta+f', (e) => {
+    e.preventDefault();
+    searchInputRef.current?.focus();
+  }, { enableOnFormTags: true });
+
+  useHotkeys('l', () => {
+    if (!isModalVisible && !isQuickAddModalVisible) {
+      calendarRef.current?.getApi().changeView('listWeek');
+    }
+  }, { enableOnFormTags: false });
+
   // ============ Map Schedules to FullCalendar Events ============
+  // Detect overlapping events for visual conflict highlighting
+  const conflictIds = new Set<string>();
+  for (let i = 0; i < schedules.length; i++) {
+    const a = schedules[i];
+    const aStart = new Date(a.startTime).getTime();
+    const aEnd = new Date(a.endTime).getTime();
+    for (let j = i + 1; j < schedules.length; j++) {
+      const b = schedules[j];
+      const bStart = new Date(b.startTime).getTime();
+      const bEnd = new Date(b.endTime).getTime();
+      if (aStart < bEnd && aEnd > bStart) {
+        conflictIds.add(a._id);
+        conflictIds.add(b._id);
+      }
+    }
+  }
+
   const events = schedules.map((schedule) => ({
     id: schedule._id,
     title: schedule.status === 'completed' ? `✅ ${schedule.title}` : schedule.title,
     start: schedule.startTime,
     end: schedule.endTime,
     backgroundColor: schedule.isException ? `${schedule.color}44` : `${schedule.color}22`,
-    borderColor: schedule.color,
+    borderColor: conflictIds.has(schedule._id) ? '#f5222d' : schedule.color,
     textColor: '#262626',
+    classNames: conflictIds.has(schedule._id) ? ['fc-event-conflict'] : [],
+    allDay: schedule.isAllDay || false,
     extendedProps: {
       description: schedule.description,
       category: schedule.category,
@@ -183,6 +258,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       isException: schedule.isException,
       parentEvent: schedule.parentEvent,
       reminderMinutes: schedule.reminderMinutes,
+      hasConflict: conflictIds.has(schedule._id),
     },
   }));
 
@@ -300,13 +376,15 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     }
 
     const recurrenceType = values.recurrenceType;
+    const recurrenceEndType = values.recurrenceEndType || 'never';
     const recurrence =
       recurrenceType && recurrenceType !== 'none'
         ? {
             type: recurrenceType,
             interval: values.recurrenceInterval || 1,
             daysOfWeek: (recurrenceType === 'weekly' || recurrenceType === 'custom') ? values.recurrenceDaysOfWeek : undefined,
-            endDate: values.recurrenceEndDate ? values.recurrenceEndDate.toISOString() : undefined,
+            endDate: recurrenceEndType === 'endDate' && values.recurrenceEndDate ? values.recurrenceEndDate.toISOString() : undefined,
+            count: recurrenceEndType === 'count' && values.recurrenceCount ? values.recurrenceCount : undefined,
           }
         : undefined;
 
@@ -320,6 +398,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       tags: values.tags,
       priority: values.priority,
       recurrence,
+      isAllDay: values.isAllDay || false,
       reminderMinutes: values.reminderMinutes !== undefined ? values.reminderMinutes : null,
     };
 
@@ -571,6 +650,30 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     .fc .fc-day-today { background-color: #e6f7ff22 !important; }
   `;
 
+  // Tag filter bar handlers
+  const handleToggleTagFilter = useCallback((tagName: string) => {
+    setActiveTagFilters((prev) => {
+      const next = prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName];
+      onFilterChange({
+        tags: next.length > 0 ? next : undefined,
+        startTime: currentRange?.start || undefined,
+        endTime: currentRange?.end || undefined,
+      });
+      return next;
+    });
+  }, [onFilterChange, currentRange]);
+
+  const handleClearTagFilters = useCallback(() => {
+    setActiveTagFilters([]);
+    onFilterChange({
+      tags: undefined,
+      startTime: currentRange?.start || undefined,
+      endTime: currentRange?.end || undefined,
+    });
+  }, [onFilterChange, currentRange]);
+
   // ============ Render ============
   return (
     <div>
@@ -584,6 +687,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <CalendarFilterPopover
             isAdmin={isAdmin}
             categoriesList={categoriesList}
+            tagsList={tagsList}
             usersList={usersList}
             onFilterChange={onFilterChange}
             currentRange={currentRange}
@@ -619,10 +723,35 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <Button icon={<PlusOutlined />} onClick={handleOpenQuickAddModal} style={{ borderRadius: '6px' }}>
             Quick Add
           </Button>
+          <Button
+            icon={<BarChartOutlined />}
+            type={showTimeline ? 'primary' : 'default'}
+            onClick={() => setShowTimeline(!showTimeline)}
+            style={{ borderRadius: '6px' }}
+          >
+            Timeline
+          </Button>
         </Space>
       </div>
 
-      {/* FullCalendar */}
+      {/* Tag Filter Bar */}
+      <TagFilterBar
+        tagsList={tagsList}
+        activeTags={activeTagFilters}
+        onToggleTag={handleToggleTagFilter}
+        onClearAll={handleClearTagFilters}
+      />
+
+      {/* Calendar / Timeline */}
+      {showTimeline ? (
+        <TimelineView
+          schedules={schedules}
+          onEventClick={(evt) => {
+            setSelectedEvent(evt);
+            setIsDetailModalVisible(true);
+          }}
+        />
+      ) : (
       <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #f0f0f0', position: 'relative', minHeight: '650px' }}>
         <Spin spinning={loading} tip={t('common.loading') || 'Đang tải...'}>
           <FullCalendar
@@ -631,7 +760,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             initialView="dayGridMonth"
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' }}
             buttonText={{ today: t('calendar.today'), month: t('calendar.monthView'), week: t('calendar.weekView'), day: t('calendar.dayView'), list: t('common.all') }}
-            allDaySlot={false}
+            allDaySlot={true}
+            allDayText="Cả ngày"
             firstDay={1}
             editable={true}
             eventStartEditable={true}
@@ -646,10 +776,19 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             eventResize={handleEventChange}
             select={handleDateSelect}
             datesSet={handleDatesSet}
+            eventDidMount={(info) => {
+              if (info.event.extendedProps?.hasConflict) {
+                info.el.style.borderStyle = 'dashed';
+                info.el.style.borderWidth = '2px';
+                info.el.style.borderColor = '#f5222d';
+                info.el.style.boxShadow = '0 0 4px rgba(245, 34, 45, 0.3)';
+              }
+            }}
             height="auto"
           />
         </Spin>
       </div>
+      )}
 
       {/* Sub-component Modals */}
       <RecurrenceChoiceModal

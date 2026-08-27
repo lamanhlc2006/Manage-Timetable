@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Form, Input, Button, Tabs, message, Typography, Table, Space, Tag, Popconfirm, Modal, ColorPicker, Tooltip, Radio } from 'antd';
+import { Card, Form, Input, Button, Tabs, message, Typography, Table, Space, Tag, Popconfirm, Modal, ColorPicker, Tooltip, Radio, Slider } from 'antd';
 import {
   UserOutlined,
   LockOutlined,
@@ -17,10 +17,15 @@ import {
   CheckCircleOutlined,
   DisconnectOutlined,
   TagsOutlined,
+  ClockCircleOutlined,
+  BellOutlined,
+  MailOutlined,
+  LinkOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { updateProfile, changePassword } from '../services/userService';
+import { updateProfile, changePassword, generateFeedToken, revokeFeedToken } from '../services/userService';
 import { fetchCategories, createCategory, updateCategory, deleteCategory, CategoryItem } from '../services/categoryService';
 import { fetchTags, createTagApi, updateTag, deleteTag, TagItem } from '../services/tagService';
 import {
@@ -41,6 +46,11 @@ export const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   const [profileLoading, setProfileLoading] = useState(false);
+  const [emailNotifEnabled, setEmailNotifEnabled] = useState(false);
+  const [notifEmail, setNotifEmail] = useState('');
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [calendarFeedToken, setCalendarFeedToken] = useState<string>('');
+  const [feedLoading, setFeedLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
@@ -153,7 +163,11 @@ export const Settings: React.FC = () => {
         profileForm.setFieldsValue({
           username: user.username,
           email: user.email,
+          bufferMinutes: user.bufferMinutes || 0,
         });
+        setEmailNotifEnabled(user.emailNotifications || false);
+        setNotifEmail(user.notificationEmail || user.email || '');
+        setCalendarFeedToken(user.calendarFeedToken || '');
       } catch (err) {
         console.error('Error parsing user details:', err);
       }
@@ -254,10 +268,20 @@ export const Settings: React.FC = () => {
   const handleUpdateProfile = async (values: any) => {
     setProfileLoading(true);
     try {
-      await updateProfile({
+      const result = await updateProfile({
         username: values.username,
         email: values.email,
+        bufferMinutes: values.bufferMinutes,
       });
+      // Update localStorage with new bufferMinutes
+      const userString = localStorage.getItem('user');
+      if (userString) {
+        const user = JSON.parse(userString);
+        user.bufferMinutes = result.bufferMinutes ?? values.bufferMinutes ?? 0;
+        user.username = result.username ?? values.username;
+        user.email = result.email ?? values.email;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
       message.success(t('common.success'));
     } catch (err: any) {
       console.error(err);
@@ -544,6 +568,32 @@ export const Settings: React.FC = () => {
             <Input prefix={<UserOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />} placeholder={t('auth.email')} style={{ borderRadius: '6px' }} />
           </Form.Item>
 
+          <Form.Item
+            name="bufferMinutes"
+            label={
+              <Space>
+                <ClockCircleOutlined />
+                {t('settings.bufferTimeLabel', 'Thời gian nghỉ giữa các sự kiện')}
+              </Space>
+            }
+            tooltip={t('settings.bufferTimeTooltip', 'Khoảng cách tối thiểu (phút) giữa 2 sự kiện liên tiếp. Nếu > 0, hệ thống sẽ cảnh báo khi tạo sự kiện quá sát nhau.')}
+          >
+            <Slider
+              min={0}
+              max={60}
+              step={5}
+              marks={{
+                0: '0',
+                5: '5',
+                10: '10',
+                15: '15',
+                30: '30',
+                60: '60',
+              }}
+              tooltip={{ formatter: (val) => `${val} ${t('settings.minutes', 'phút')}` }}
+            />
+          </Form.Item>
+
           <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
             <Button
               type="primary"
@@ -720,6 +770,148 @@ export const Settings: React.FC = () => {
             bordered
             style={{ borderRadius: '8px', overflow: 'hidden' }}
           />
+        </div>
+      ),
+    },
+    {
+      key: 'notifications',
+      label: (
+        <span>
+          <BellOutlined />
+          {t('settings.notificationsTab', 'Thông báo')}
+        </span>
+      ),
+      children: (
+        <div style={{ maxWidth: 520 }}>
+          <Typography.Title level={5} style={{ marginBottom: '16px' }}>
+            <MailOutlined /> {t('settings.emailNotifTitle', 'Thông báo qua Email')}
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 20 }}>
+            {t('settings.emailNotifDesc', 'Nhận email nhắc nhở trước khi sự kiện diễn ra. Yêu cầu server cấu hình SMTP.')}
+          </Typography.Paragraph>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 500 }}>{t('settings.enableEmailNotif', 'Bật thông báo email')}</span>
+              <Switch checked={emailNotifEnabled} onChange={setEmailNotifEnabled} />
+            </div>
+
+            {emailNotifEnabled && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#595959', marginBottom: 4 }}>
+                  {t('settings.notifEmailLabel', 'Email nhận thông báo')}
+                </div>
+                <Input
+                  prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+                  placeholder={t('settings.notifEmailPlaceholder', 'Để trống sẽ dùng email tài khoản')}
+                  value={notifEmail}
+                  onChange={(e) => setNotifEmail(e.target.value)}
+                  style={{ borderRadius: 6 }}
+                />
+                <Typography.Text type="secondary" style={{ fontSize: 11, marginTop: 4, display: 'block' }}>
+                  {t('settings.notifEmailHint', 'Để trống sẽ gửi đến email đăng ký tài khoản của bạn.')}
+                </Typography.Text>
+              </div>
+            )}
+
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={notifSaving}
+              style={{ borderRadius: 6, alignSelf: 'flex-start' }}
+              onClick={async () => {
+                setNotifSaving(true);
+                try {
+                  const userString = localStorage.getItem('user');
+                  const user = userString ? JSON.parse(userString) : {};
+                  const result = await updateProfile({
+                    username: user.username,
+                    email: user.email,
+                    emailNotifications: emailNotifEnabled,
+                    notificationEmail: notifEmail,
+                  });
+                  // Update localStorage
+                  user.emailNotifications = emailNotifEnabled;
+                  user.notificationEmail = notifEmail;
+                  if (result.bufferMinutes !== undefined) user.bufferMinutes = result.bufferMinutes;
+                  localStorage.setItem('user', JSON.stringify(user));
+                  message.success(t('common.success'));
+                } catch (err: any) {
+                  const msg = err.response?.data?.message || t('common.error');
+                  message.error(msg);
+                } finally {
+                  setNotifSaving(false);
+                }
+              }}
+            >
+              {t('common.save')}
+            </Button>
+          </div>
+
+          {/* Webcal Feed Section */}
+          <div style={{ marginTop: 32, borderTop: '1px solid #f0f0f0', paddingTop: 24 }}>
+            <Typography.Title level={5} style={{ marginBottom: '8px' }}>
+              <LinkOutlined /> {t('settings.calendarFeedTitle', 'Đăng ký lịch (webcal)')}
+            </Typography.Title>
+            <Typography.Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
+              {t('settings.calendarFeedDesc', 'Tạo link để đăng ký lịch trình vào Google Calendar, Apple Calendar hoặc Outlook. Lịch sẽ tự động cập nhật.')}
+            </Typography.Paragraph>
+
+            {calendarFeedToken ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Input.Group compact>
+                  <Input
+                    readOnly
+                    value={`${window.location.origin}/api/schedules/feed/${calendarFeedToken}`}
+                    style={{ width: 'calc(100% - 80px)', borderRadius: '6px 0 0 6px', fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                  <Button
+                    icon={<CopyOutlined />}
+                    style={{ borderRadius: '0 6px 6px 0' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/schedules/feed/${calendarFeedToken}`);
+                      message.success(t('settings.feedCopied', 'Đã sao chép link!'));
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </Input.Group>
+                <Typography.Paragraph type="secondary" style={{ fontSize: 11, marginBottom: 0 }}>
+                  {'💡 '}<strong>{t('settings.feedHowTo', 'Cách dùng')}:</strong><br />
+                  {'• Google Calendar: Settings → Add calendar → From URL → paste link'}<br />
+                  {'• Apple Calendar: File → New Calendar Subscription → paste link'}<br />
+                  {'• Outlook: Add calendar → Subscribe from web → paste link'}
+                </Typography.Paragraph>
+                <Button danger size="small" loading={feedLoading} style={{ alignSelf: 'flex-start', borderRadius: 6 }} onClick={async () => {
+                  setFeedLoading(true);
+                  try {
+                    await revokeFeedToken();
+                    setCalendarFeedToken('');
+                    const u = localStorage.getItem('user');
+                    if (u) { const p = JSON.parse(u); delete p.calendarFeedToken; localStorage.setItem('user', JSON.stringify(p)); }
+                    message.success(t('settings.feedRevoked', 'Đã thu hồi link'));
+                  } catch (err: any) { message.error(err.response?.data?.message || t('common.error')); }
+                  finally { setFeedLoading(false); }
+                }}>
+                  {t('settings.revokeFeed', 'Thu hồi link')}
+                </Button>
+              </div>
+            ) : (
+              <Button type="primary" icon={<LinkOutlined />} loading={feedLoading} style={{ borderRadius: 6 }} onClick={async () => {
+                setFeedLoading(true);
+                try {
+                  const result = await generateFeedToken();
+                  setCalendarFeedToken(result.calendarFeedToken);
+                  const u = localStorage.getItem('user');
+                  if (u) { const p = JSON.parse(u); p.calendarFeedToken = result.calendarFeedToken; localStorage.setItem('user', JSON.stringify(p)); }
+                  message.success(t('settings.feedGenerated', 'Đã tạo link đăng ký lịch!'));
+                } catch (err: any) { message.error(err.response?.data?.message || t('common.error')); }
+                finally { setFeedLoading(false); }
+              }}>
+                {t('settings.generateFeed', 'Tạo link đăng ký lịch')}
+              </Button>
+            )}
+          </div>
         </div>
       ),
     },

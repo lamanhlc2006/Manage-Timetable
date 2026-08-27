@@ -80,11 +80,47 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({
               </td>
               <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutCloseModal')}</td>
             </tr>
-            <tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
               <td style={{ padding: '12px 8px' }}>
                 <Tag color="warning"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>?</kbd> hoặc <kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Shift + /</kbd></Tag>
               </td>
               <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutOpenHelp')}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="green"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>E</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutEdit', 'Chỉnh sửa sự kiện (khi đang xem)')}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="red"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Delete</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutDelete', 'Xóa sự kiện (khi đang xem)')}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Enter</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutDetail', 'Xem chi tiết sự kiện')}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>← →</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutPrevNext', 'Tuần/Tháng trước/sau')}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="cyan"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>Ctrl+F</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutSearch', 'Tìm kiếm')}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '12px 8px' }}>
+                <Tag color="default"><kbd style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>L</kbd></Tag>
+              </td>
+              <td style={{ padding: '12px 8px', fontWeight: 500 }}>{t('calendar.shortcutListView', 'Chuyển sang xem danh sách')}</td>
             </tr>
           </tbody>
         </table>

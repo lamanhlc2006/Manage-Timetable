@@ -13,6 +13,7 @@ export interface RecurrenceSettings {
   interval: number;
   daysOfWeek?: number[];
   endDate?: string;
+  count?: number;
   exceptions?: string[];
 }
 
@@ -31,6 +32,7 @@ export interface ScheduleEvent {
   recurrence?: RecurrenceSettings;
   isException?: boolean;
   parentEvent?: string;
+  isAllDay?: boolean;
   reminderMinutes?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +48,7 @@ export interface CreateScheduleInput {
   tags?: string[];
   priority?: 'low' | 'medium' | 'high';
   recurrence?: RecurrenceSettings;
+  isAllDay?: boolean;
   reminderMinutes?: number | null;
 }
 
@@ -224,6 +227,8 @@ export const searchSchedules = async (params: {
   keyword?: string;
   categories?: string[];
   priority?: string[];
+  status?: string[];
+  tags?: string[];
   startTime?: string;
   endTime?: string;
   creator?: string;
@@ -243,6 +248,12 @@ export const searchSchedules = async (params: {
     }
     if (params.priority && params.priority.length > 0) {
       data = data.filter((item) => item.priority && params.priority!.includes(item.priority));
+    }
+    if (params.status && params.status.length > 0) {
+      data = data.filter((item) => item.status && params.status!.includes(item.status));
+    }
+    if (params.tags && params.tags.length > 0) {
+      data = data.filter((item) => item.tags && params.tags!.every((t) => item.tags!.includes(t)));
     }
     if (params.creator) {
       data = data.filter((item) => item.createdBy?._id === params.creator);
@@ -265,6 +276,12 @@ export const searchSchedules = async (params: {
   }
   if (params.priority && params.priority.length > 0) {
     queryParams.append('priority', params.priority.join(','));
+  }
+  if (params.status && params.status.length > 0) {
+    queryParams.append('status', params.status.join(','));
+  }
+  if (params.tags && params.tags.length > 0) {
+    queryParams.append('tags', params.tags.join(','));
   }
   if (params.startTime) queryParams.append('startTime', params.startTime);
   if (params.endTime) queryParams.append('endTime', params.endTime);

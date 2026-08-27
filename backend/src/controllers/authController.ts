@@ -255,6 +255,10 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       username: req.user.username,
       email: req.user.email,
       role: req.user.role,
+      bufferMinutes: (req.user as any).bufferMinutes || 0,
+      emailNotifications: (req.user as any).emailNotifications || false,
+      notificationEmail: (req.user as any).notificationEmail || '',
+      calendarFeedToken: (req.user as any).calendarFeedToken || '',
     });
   } catch (error: any) {
     handleControllerError(res, error, 'Profile error');
@@ -291,7 +295,7 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
  * @access  Private
  */
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { username, email } = req.body;
+  const { username, email, bufferMinutes, emailNotifications, notificationEmail } = req.body;
 
   try {
     if (!req.user) {
@@ -331,6 +335,21 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 
     user.username = cleanUsername;
     user.email = cleanEmail;
+
+    // Update buffer minutes if provided
+    if (bufferMinutes !== undefined) {
+      const buffer = Math.max(0, Math.min(60, Number(bufferMinutes) || 0));
+      (user as any).bufferMinutes = buffer;
+    }
+
+    // Update email notification preferences
+    if (emailNotifications !== undefined) {
+      (user as any).emailNotifications = !!emailNotifications;
+    }
+    if (notificationEmail !== undefined) {
+      (user as any).notificationEmail = notificationEmail ? notificationEmail.toLowerCase().trim() : '';
+    }
+
     await user.save();
 
     res.json({
@@ -338,6 +357,9 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       username: user.username,
       email: user.email,
       role: user.role,
+      bufferMinutes: (user as any).bufferMinutes || 0,
+      emailNotifications: (user as any).emailNotifications || false,
+      notificationEmail: (user as any).notificationEmail || '',
     });
   } catch (error: any) {
     handleControllerError(res, error, 'Update profile error');
@@ -387,5 +409,51 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
     res.json({ message: 'Đổi mật khẩu thành công.' });
   } catch (error: any) {
     handleControllerError(res, error, 'Change password error');
+  }
+};
+
+/**
+ * @desc    Generate a unique calendar feed token
+ * @route   POST /api/auth/generate-feed-token
+ * @access  Private
+ */
+export const generateFeedToken = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+    const { randomUUID } = await import('crypto');
+    const token = randomUUID();
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { calendarFeedToken: token },
+      { new: true }
+    );
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    res.json({ calendarFeedToken: token });
+  } catch (error: any) {
+    handleControllerError(res, error, 'Generate feed token error');
+  }
+};
+
+/**
+ * @desc    Revoke calendar feed token
+ * @route   DELETE /api/auth/revoke-feed-token
+ * @access  Private
+ */
+export const revokeFeedToken = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'User unauthorized' });
+      return;
+    }
+    await User.findByIdAndUpdate(req.user._id, { $unset: { calendarFeedToken: 1 } });
+    res.json({ message: 'Feed token revoked' });
+  } catch (error: any) {
+    handleControllerError(res, error, 'Revoke feed token error');
   }
 };

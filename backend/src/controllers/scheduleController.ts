@@ -4,7 +4,7 @@ import { Schedule } from '../models/Schedule';
 import { Notification } from '../models/Notification';
 import { User } from '../models/User';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import { expandRecurringEvents, checkScheduleConflicts } from '../config/recurrenceHelper';
+import { expandRecurringEvents, checkScheduleConflicts, suggestNextAvailableSlot } from '../config/recurrenceHelper';
 import { escapeRegex } from '../utils/stringUtils';
 import { handleControllerError, isValidObjectId } from '../utils/errorHandler';
 import { emitScheduleCreated, emitScheduleUpdated, emitScheduleDeleted } from '../config/socket';
@@ -193,7 +193,7 @@ export const getSchedules = async (req: AuthRequest, res: Response): Promise<voi
  * @access  Private/Admin
  */
 export const createSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { title, description, startTime, endTime, color, category, priority, tags } = req.body;
+  const { title, description, startTime, endTime, color, category, priority, tags, isAllDay } = req.body;
 
   try {
     if (!req.user) {
@@ -210,11 +210,15 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Validate that startTime is before endTime
-    if (start >= end) {
+    // Validate that startTime is before endTime (skip for all-day events)
+    if (!isAllDay && start >= end) {
       res.status(400).json({ message: 'Start time must be strictly before end time' });
       return;
     }
+
+    // Fetch user's buffer setting
+    const currentUser = await User.findById(req.user._id).select('bufferMinutes');
+    const userBuffer = (currentUser as any)?.bufferMinutes || 0;
 
     // Always check for time conflicts — overlapping events are not allowed
     const overlapping = await checkScheduleConflicts(
@@ -222,13 +226,23 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       start,
       end,
       undefined,
-      req.body.recurrence
+      req.body.recurrence,
+      userBuffer
     );
 
     if (overlapping.length > 0) {
+      // Suggest the next available time slot with the same duration
+      const durationMs = end.getTime() - start.getTime();
+      const suggestedSlot = await suggestNextAvailableSlot(
+        req.user._id.toString(),
+        durationMs,
+        start
+      );
+
       res.status(409).json({
         message: 'Phát hiện lịch trình bị trùng lặp!',
         conflicts: overlapping,
+        suggestedSlot,
       });
       return;
     }
@@ -245,6 +259,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       tags: tags || [],
       priority,
       recurrence: req.body.recurrence,
+      isAllDay: isAllDay || false,
       reminderMinutes,
       reminderSent: false,
       createdBy: req.user._id,
@@ -285,7 +300,7 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
  */
 export const updateSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { title, description, startTime, endTime, color, category, priority, tags, recurrence, recurrenceEditMode } = req.body;
+  const { title, description, startTime, endTime, color, category, priority, tags, recurrence, recurrenceEditMode, isAllDay } = req.body;
 
   try {
     let targetId = id;
@@ -337,7 +352,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    if (start >= end) {
+    if (!isAllDay && start >= end) {
       res.status(400).json({ message: 'Start time must be strictly before end time' });
       return;
     }
@@ -348,18 +363,31 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
 
     if (!isStatusOnlyUpdate && req.user) {
       const effectiveRecurrence = recurrence !== undefined ? recurrence : schedule.recurrence;
+      const updateUser = await User.findById(req.user._id).select('bufferMinutes');
+      const updateBuffer = (updateUser as any)?.bufferMinutes || 0;
       const overlapping = await checkScheduleConflicts(
         req.user._id.toString(),
         start,
         end,
         targetId,
-        effectiveRecurrence
+        effectiveRecurrence,
+        updateBuffer
       );
 
       if (overlapping.length > 0) {
+        // Suggest the next available time slot with the same duration
+        const durationMs = end.getTime() - start.getTime();
+        const suggestedSlot = await suggestNextAvailableSlot(
+          req.user._id.toString(),
+          durationMs,
+          start,
+          targetId
+        );
+
         res.status(409).json({
           message: 'Phát hiện lịch trình bị trùng lặp!',
           conflicts: overlapping,
+          suggestedSlot,
         });
         return;
       }
@@ -451,6 +479,7 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
     if (priority !== undefined) updateData.priority = priority;
     if (req.body.status !== undefined) updateData.status = req.body.status;
     if (recurrence !== undefined) updateData.recurrence = recurrence;
+    if (isAllDay !== undefined) updateData.isAllDay = isAllDay;
     if (startTime !== undefined) updateData.startTime = start;
     if (endTime !== undefined) updateData.endTime = end;
     if (reminderMinutes !== undefined) {
@@ -632,7 +661,7 @@ export const deleteSchedule = async (req: AuthRequest, res: Response): Promise<v
  * @access  Private (Registered users)
  */
 export const searchSchedules = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { keyword, categories, priority, startTime, endTime, creator } = req.query;
+  const { keyword, categories, priority, startTime, endTime, creator, status, tags } = req.query;
 
   try {
     if (!req.user) {
@@ -707,6 +736,24 @@ export const searchSchedules = async (req: AuthRequest, res: Response): Promise<
       }
     }
 
+    if (status) {
+      const statusList = Array.isArray(status)
+        ? status
+        : (status as string).split(',').map((s) => s.trim()).filter(Boolean);
+      if (statusList.length > 0) {
+        filterQuery.status = { $in: statusList };
+      }
+    }
+
+    if (tags) {
+      const tagList = Array.isArray(tags)
+        ? tags
+        : (tags as string).split(',').map((t) => t.trim()).filter(Boolean);
+      if (tagList.length > 0) {
+        filterQuery.tags = { $all: tagList };
+      }
+    }
+
     if (Object.keys(filterQuery).length > 0) {
       baseConditions.push(filterQuery);
     }
@@ -759,6 +806,60 @@ export const exportIcs = async (req: AuthRequest, res: Response): Promise<void> 
     res.end(calendar.toString());
   } catch (error: any) {
     handleControllerError(res, error, 'Export ICS error');
+  }
+};
+
+/**
+ * @desc    Public calendar feed — returns ICS for a user's feed token
+ * @route   GET /api/schedules/feed/:token
+ * @access  Public (no auth)
+ */
+export const getCalendarFeed = async (req: any, res: any): Promise<void> => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      res.status(400).json({ message: 'Token is required' });
+      return;
+    }
+
+    const user = await User.findOne({ calendarFeedToken: token }).select('_id username');
+    if (!user) {
+      res.status(404).json({ message: 'Invalid or expired feed token' });
+      return;
+    }
+
+    const schedules = await Schedule.find({ createdBy: user._id });
+
+    const calendar = ical({
+      name: `${user.username} — Timetable`,
+      method: ICalCalendarMethod.PUBLISH,
+      prodId: { company: 'ManageTimetable', product: 'CalendarFeed' },
+      ttl: 3600, // clients should refresh every hour
+    });
+
+    schedules.forEach((sch) => {
+      const ev = calendar.createEvent({
+        id: sch._id.toString(),
+        start: sch.startTime,
+        end: sch.endTime,
+        summary: sch.title,
+        description: sch.description || '',
+        location: sch.category || '',
+      });
+      if ((sch as any).isAllDay) {
+        ev.allDay(true);
+      }
+    });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': 'inline; filename="feed.ics"',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    });
+    res.end(calendar.toString());
+  } catch (error: any) {
+    console.error('Calendar feed error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 

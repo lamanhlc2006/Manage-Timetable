@@ -141,6 +141,9 @@ export const toggleUserStatus = async (id: string, isActive: boolean): Promise<U
 export interface UpdateProfileInput {
   username: string;
   email: string;
+  bufferMinutes?: number;
+  emailNotifications?: boolean;
+  notificationEmail?: string;
 }
 
 export interface ChangePasswordInput {
@@ -197,4 +200,13 @@ export const resetPassword = async (id: string): Promise<{ message: string }> =>
 
   const response = await api.post<{ message: string }>(`/users/${id}/reset-password`);
   return response.data;
+};
+
+export const generateFeedToken = async (): Promise<{ calendarFeedToken: string }> => {
+  const response = await api.post<{ calendarFeedToken: string }>('/auth/generate-feed-token');
+  return response.data;
+};
+
+export const revokeFeedToken = async (): Promise<void> => {
+  await api.delete('/auth/revoke-feed-token');
 };

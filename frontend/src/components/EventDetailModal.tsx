@@ -71,8 +71,20 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <tr>
               <td style={{ width: '120px', padding: '8px 0', color: '#8c8c8c' }}>Thời gian:</td>
               <td style={{ padding: '8px 0', fontWeight: 500 }}>
-                {dayjs(event.startTime).format('HH:mm DD/MM/YYYY')} -{' '}
-                {dayjs(event.endTime).format('HH:mm DD/MM/YYYY')}
+                {event.isAllDay ? (
+                  <>
+                    <Tag color="blue" style={{ borderRadius: '4px', marginRight: 8 }}>Cả ngày</Tag>
+                    {dayjs(event.startTime).isSame(dayjs(event.endTime), 'day')
+                      ? dayjs(event.startTime).format('DD/MM/YYYY')
+                      : `${dayjs(event.startTime).format('DD/MM/YYYY')} → ${dayjs(event.endTime).format('DD/MM/YYYY')}`
+                    }
+                  </>
+                ) : (
+                  <>
+                    {dayjs(event.startTime).format('HH:mm DD/MM/YYYY')} -{' '}
+                    {dayjs(event.endTime).format('HH:mm DD/MM/YYYY')}
+                  </>
+                )}
               </td>
             </tr>
             {event.description && (

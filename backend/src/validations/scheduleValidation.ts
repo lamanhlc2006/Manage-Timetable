@@ -12,6 +12,7 @@ const recurrenceSchema = z.object({
   endDate: z.union([z.string(), z.date()]).nullable().optional().refine(isValidDate, {
     message: 'Ngày kết thúc lặp không hợp lệ',
   }),
+  count: z.number().int().min(1).optional(),
   exceptions: z.array(z.union([z.string(), z.date()])).optional(),
 });
 
@@ -30,12 +31,14 @@ export const createScheduleSchema = z
     tags: z.array(z.string()).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
     recurrence: recurrenceSchema.optional(),
+    isAllDay: z.boolean().optional(),
     reminderMinutes: z.number().nullable().optional(),
     force: z.boolean().optional(),
     forceCreate: z.boolean().optional(),
   })
   .refine(
     (data) => {
+      if (data.isAllDay) return true; // Skip time check for all-day events
       const start = new Date(data.startTime);
       const end = new Date(data.endTime);
       return start < end;
@@ -64,6 +67,7 @@ export const updateScheduleSchema = z
     priority: z.enum(['low', 'medium', 'high']).optional(),
     status: z.enum(['pending', 'completed', 'cancelled']).optional(),
     recurrence: recurrenceSchema.optional(),
+    isAllDay: z.boolean().optional(),
     recurrenceEditMode: z.enum(['all', 'current', 'future']).optional(),
     reminderMinutes: z.number().nullable().optional(),
     force: z.boolean().optional(),
@@ -71,6 +75,7 @@ export const updateScheduleSchema = z
   })
   .refine(
     (data) => {
+      if (data.isAllDay) return true; // Skip time check for all-day events
       if (data.startTime && data.endTime) {
         const start = new Date(data.startTime);
         const end = new Date(data.endTime);

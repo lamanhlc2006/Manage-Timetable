@@ -62,6 +62,10 @@ const ScheduleSchema = new Schema<ISchedule>(
       },
       daysOfWeek: [Number],
       endDate: Date,
+      count: {
+        type: Number,
+        min: [1, 'Recurrence count must be at least 1'],
+      },
       exceptions: [Date],
     },
     isException: {
@@ -73,6 +77,10 @@ const ScheduleSchema = new Schema<ISchedule>(
       ref: 'Schedule',
     },
     isPublic: {
+      type: Boolean,
+      default: false,
+    },
+    isAllDay: {
       type: Boolean,
       default: false,
     },
@@ -98,10 +106,24 @@ const ScheduleSchema = new Schema<ISchedule>(
   }
 );
 
-// Validate endTime > startTime (works with both save() and findByIdAndUpdate)
+// Validate endTime > startTime (skip for all-day events where times are normalized)
 ScheduleSchema.pre('validate', function (next) {
-  if (this.startTime && this.endTime && this.startTime >= this.endTime) {
+  if (!this.isAllDay && this.startTime && this.endTime && this.startTime >= this.endTime) {
     this.invalidate('endTime', 'End time must be after start time');
+  }
+  next();
+});
+
+// Normalize all-day event times: startTime → 00:00:00, endTime → 23:59:59
+ScheduleSchema.pre('save', function (next) {
+  if (this.isAllDay && this.startTime && this.endTime) {
+    const start = new Date(this.startTime);
+    start.setHours(0, 0, 0, 0);
+    this.startTime = start;
+
+    const end = new Date(this.endTime);
+    end.setHours(23, 59, 59, 999);
+    this.endTime = end;
   }
   next();
 });

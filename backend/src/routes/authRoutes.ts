@@ -19,6 +19,11 @@ import {
   syncGoogleNow,
 } from '../controllers/googleAuthController';
 
+import {
+  generateFeedToken,
+  revokeFeedToken,
+} from '../controllers/authController';
+
 const router = Router();
 
 router.post('/register', registerUser);
@@ -36,5 +41,9 @@ router.get('/google/status', protect, getGoogleSyncStatus);
 router.post('/google/toggle-sync', protect, toggleGoogleSync);
 router.post('/google/disconnect', protect, disconnectGoogle);
 router.post('/google/sync-now', protect, syncGoogleNow);
+
+// Calendar Feed Token
+router.post('/generate-feed-token', protect, generateFeedToken);
+router.delete('/revoke-feed-token', protect, revokeFeedToken);
 
 export default router;

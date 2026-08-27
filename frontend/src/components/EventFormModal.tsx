@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Space, Badge, InputNumber, Tag, message } from 'antd';
+import { Modal, Form, Input, DatePicker, Select, Button, Space, Badge, InputNumber, Tag, message, Radio, Alert, Switch } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ScheduleEvent } from '../services/scheduleService';
@@ -54,6 +54,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const [form] = Form.useForm();
   const [isCustomReminder, setIsCustomReminder] = useState(false);
   const [customMinutes, setCustomMinutes] = useState<number>(10);
+  const [recurrenceEndType, setRecurrenceEndType] = useState<'never' | 'count' | 'endDate'>('never');
 
   // Tag sanitization: strip special chars, auto-prefix '#'
   const sanitizeTag = (tag: string): string | null => {
@@ -80,6 +81,15 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && event) {
+        // Detect recurrence end type from existing event
+        let endType: 'never' | 'count' | 'endDate' = 'never';
+        if (event.recurrence?.count) {
+          endType = 'count';
+        } else if (event.recurrence?.endDate) {
+          endType = 'endDate';
+        }
+        setRecurrenceEndType(endType);
+
         form.setFieldsValue({
           title: event.title,
           description: event.description || '',
@@ -92,6 +102,9 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           recurrenceInterval: event.recurrence?.interval || 1,
           recurrenceDaysOfWeek: event.recurrence?.daysOfWeek || [],
           recurrenceEndDate: event.recurrence?.endDate ? dayjs(event.recurrence.endDate) : null,
+          recurrenceCount: event.recurrence?.count || 10,
+          recurrenceEndType: endType,
+          isAllDay: event.isAllDay || false,
           reminderMinutes: event.reminderMinutes !== undefined ? event.reminderMinutes : null,
         });
         // Detect custom reminder
@@ -107,6 +120,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       } else {
         form.resetFields();
         setIsCustomReminder(false);
+        setRecurrenceEndType('never');
         if (event) {
           form.setFieldsValue({
             title: event.title || '',
@@ -123,6 +137,9 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             recurrenceInterval: event.recurrence?.interval || 1,
             recurrenceDaysOfWeek: event.recurrence?.daysOfWeek || [],
             recurrenceEndDate: event.recurrence?.endDate ? dayjs(event.recurrence.endDate) : null,
+            recurrenceCount: 10,
+            recurrenceEndType: 'never',
+            isAllDay: false,
             reminderMinutes: event.reminderMinutes !== undefined ? event.reminderMinutes : 15,
           });
         } else {
@@ -138,12 +155,28 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             recurrenceInterval: 1,
             recurrenceDaysOfWeek: [],
             recurrenceEndDate: null,
+            recurrenceCount: 10,
+            recurrenceEndType: 'never',
+            isAllDay: false,
             reminderMinutes: 15,
           });
         }
       }
     }
   }, [visible, mode, event, form, categoriesList]);
+
+  // Conflict detection state
+  const [conflictInfo, setConflictInfo] = useState<{
+    conflicts: Array<{ _id: string; title: string; startTime: string; endTime: string }>;
+    suggestedSlot: { suggestedStart: string; suggestedEnd: string } | null;
+  } | null>(null);
+
+  // Clear conflict info when modal closes or opens
+  useEffect(() => {
+    if (visible) {
+      setConflictInfo(null);
+    }
+  }, [visible]);
 
   const handleFormSubmit = async () => {
     try {
@@ -168,16 +201,42 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         values.reminderMinutes = customMinutes;
       }
 
+      // Clear conflict info on new submit attempt
+      setConflictInfo(null);
+
       // Pass processed form values to parent handler
       await onSubmit(values, mode);
     } catch (err: any) {
       if (err.errorFields) return; // form validation error, antd handles display
       console.error(err);
+
+      // Handle 409 Conflict — show conflict details and suggested slot
+      if (err.response?.status === 409 && err.response?.data?.conflicts) {
+        setConflictInfo({
+          conflicts: err.response.data.conflicts,
+          suggestedSlot: err.response.data.suggestedSlot || null,
+        });
+        return;
+      }
+
       if (err.response?.data?.message) {
         message.error(err.response.data.message);
       } else {
         message.error('Đã xảy ra lỗi, vui lòng thử lại.');
       }
+    }
+  };
+
+  const handleApplySuggestedSlot = () => {
+    if (conflictInfo?.suggestedSlot) {
+      form.setFieldsValue({
+        range: [
+          dayjs(conflictInfo.suggestedSlot.suggestedStart),
+          dayjs(conflictInfo.suggestedSlot.suggestedEnd),
+        ],
+      });
+      setConflictInfo(null);
+      message.success(t('calendar.suggestedSlotApplied', 'Đã áp dụng khung giờ gợi ý'));
     }
   };
 
@@ -195,6 +254,21 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       width={560}
     >
       <Form form={form} preserve={false} layout="vertical" onFinish={handleFormSubmit}>
+        {(() => {
+          try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            if (u.bufferMinutes && u.bufferMinutes > 0) {
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  <Tag color="orange" style={{ borderRadius: '4px' }}>
+                    ⏱ {t('calendar.bufferApplied', 'Buffer {{minutes}} phút được áp dụng', { minutes: u.bufferMinutes })}
+                  </Tag>
+                </div>
+              );
+            }
+          } catch { /* ignore */ }
+          return null;
+        })()}
         <Form.Item
           name="title"
           label={t('calendar.eventTitle')}
@@ -330,17 +404,39 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           </Form.Item>
         )}
 
+        <Form.Item name="isAllDay" label={t('calendar.allDayLabel', 'Cả ngày')} valuePropName="checked">
+          <Switch />
+        </Form.Item>
+
         <Form.Item
-          name="range"
-          label={t('calendar.timeRangeLabel')}
-          rules={[{ required: true, message: t('calendar.timeRequired') }]}
+          noStyle
+          shouldUpdate={(prevValues, currentValues) => prevValues.isAllDay !== currentValues.isAllDay}
         >
-          <DatePicker.RangePicker
-            showTime={{ format: 'HH:mm' }}
-            format="HH:mm YYYY-MM-DD"
-            style={{ width: '100%' }}
-            placeholder={[t('calendar.start'), t('calendar.end')]}
-          />
+          {({ getFieldValue }) => {
+            const allDay = getFieldValue('isAllDay');
+            return (
+              <Form.Item
+                name="range"
+                label={allDay ? t('calendar.dateRangeLabel', 'Khoảng ngày') : t('calendar.timeRangeLabel')}
+                rules={[{ required: true, message: t('calendar.timeRequired') }]}
+              >
+                {allDay ? (
+                  <DatePicker.RangePicker
+                    format="YYYY-MM-DD"
+                    style={{ width: '100%' }}
+                    placeholder={[t('calendar.startDate', 'Ngày bắt đầu'), t('calendar.endDate', 'Ngày kết thúc')]}
+                  />
+                ) : (
+                  <DatePicker.RangePicker
+                    showTime={{ format: 'HH:mm' }}
+                    format="HH:mm YYYY-MM-DD"
+                    style={{ width: '100%' }}
+                    placeholder={[t('calendar.start'), t('calendar.end')]}
+                  />
+                )}
+              </Form.Item>
+            );
+          }}
         </Form.Item>
 
         <Form.Item name="color" label={t('calendar.colorLabel')}>
@@ -424,8 +520,36 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                     </Form.Item>
                   )}
 
-                  <Form.Item name="recurrenceEndDate" label={t('calendar.recurrenceEndDateLabel')} style={{ marginBottom: 0 }}>
-                    <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} placeholder={t('calendar.forever')} />
+                  <Form.Item name="recurrenceEndType" label={t('calendar.recurrenceEndCondition', 'Điều kiện kết thúc')} style={{ marginBottom: '12px' }}>
+                    <Radio.Group
+                      onChange={(e) => setRecurrenceEndType(e.target.value)}
+                      value={recurrenceEndType}
+                    >
+                      <Space direction="vertical">
+                        <Radio value="never">{t('calendar.recurrenceEndNever', 'Lặp mãi mãi')}</Radio>
+                        <Radio value="count">
+                          <Space>
+                            {t('calendar.recurrenceEndAfter', 'Sau')}
+                            {recurrenceEndType === 'count' && (
+                              <Form.Item name="recurrenceCount" noStyle initialValue={10}>
+                                <InputNumber min={1} max={999} style={{ width: 80 }} />
+                              </Form.Item>
+                            )}
+                            {t('calendar.recurrenceEndTimes', 'lần')}
+                          </Space>
+                        </Radio>
+                        <Radio value="endDate">
+                          <Space>
+                            {t('calendar.recurrenceEndUntil', 'Đến ngày')}
+                            {recurrenceEndType === 'endDate' && (
+                              <Form.Item name="recurrenceEndDate" noStyle>
+                                <DatePicker format="YYYY-MM-DD" placeholder={t('calendar.selectDate', 'Chọn ngày')} />
+                              </Form.Item>
+                            )}
+                          </Space>
+                        </Radio>
+                      </Space>
+                    </Radio.Group>
                   </Form.Item>
                 </Space>
               );
@@ -433,6 +557,45 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             return null;
           }}
         </Form.Item>
+
+        {/* Conflict Warning */}
+        {conflictInfo && (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={t('calendar.conflictDetected', '⚠️ Phát hiện trùng lịch!')}
+            description={
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  {conflictInfo.conflicts.slice(0, 3).map((c) => (
+                    <div key={c._id} style={{ fontSize: 13 }}>
+                      • <strong>{c.title}</strong>{' '}
+                      ({dayjs(c.startTime).format('HH:mm')} – {dayjs(c.endTime).format('HH:mm DD/MM')})
+                    </div>
+                  ))}
+                  {conflictInfo.conflicts.length > 3 && (
+                    <div style={{ fontSize: 13, color: '#999' }}>
+                      ...{t('calendar.andMore', 'và {{count}} sự kiện khác', { count: conflictInfo.conflicts.length - 3 })}
+                    </div>
+                  )}
+                </div>
+                {conflictInfo.suggestedSlot && (
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={handleApplySuggestedSlot}
+                    style={{ marginTop: 4 }}
+                  >
+                    📅 {t('calendar.moveToSuggested', 'Dời sang')}{' '}
+                    {dayjs(conflictInfo.suggestedSlot.suggestedStart).format('HH:mm')} –{' '}
+                    {dayjs(conflictInfo.suggestedSlot.suggestedEnd).format('HH:mm DD/MM')}
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        )}
 
         <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
           <Space>

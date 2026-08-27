@@ -51,6 +51,26 @@ const UserSchema = new Schema<IUser>(
     lastGoogleSyncAt: {
       type: Date,
     },
+    bufferMinutes: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 60,
+    },
+    emailNotifications: {
+      type: Boolean,
+      default: false,
+    },
+    notificationEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    calendarFeedToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
   },
   {
     timestamps: true,

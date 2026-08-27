@@ -8,12 +8,16 @@ import {
   deleteSchedule,
   searchSchedules,
   exportIcs,
+  getCalendarFeed,
 } from '../controllers/scheduleController';
 import { protect, isAdmin } from '../middlewares/authMiddleware';
 import { validate } from '../middlewares/validateMiddleware';
 import { createScheduleSchema, updateScheduleSchema } from '../validations/scheduleValidation';
 
 const router = Router();
+
+// Public: Calendar feed (no auth, token-based)
+router.get('/feed/:token', getCalendarFeed);
 
 // Retrieve all schedule events (Available to any authenticated user)
 router.get('/', protect, getSchedules);

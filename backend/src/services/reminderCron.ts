@@ -1,9 +1,11 @@
 import cron from 'node-cron';
 import { Schedule } from '../models/Schedule';
+import { User } from '../models/User';
 import { Notification } from '../models/Notification';
 import { sendWebPushNotificationToUser } from '../config/webPushConfig';
 import { emitNotificationNew } from '../config/socket';
 import { expandRecurringEvents } from '../config/recurrenceHelper';
+import { sendReminderEmail } from './emailService';
 
 /**
  * Formats remaining minutes into a human-readable Vietnamese string.
@@ -92,6 +94,19 @@ export const startReminderCron = () => {
           // Emit Socket.IO event
           emitNotificationNew(userId, newNotif);
 
+          // Send email notification if enabled
+          try {
+            const user = await User.findById(userId).select('emailNotifications notificationEmail email');
+            if (user && (user as any).emailNotifications) {
+              const emailTo = (user as any).notificationEmail || user.email;
+              if (emailTo) {
+                await sendReminderEmail(emailTo, schedule.title, eventTimeText, remainingText);
+              }
+            }
+          } catch (emailErr) {
+            console.error('📧 Error checking/sending email notification:', emailErr);
+          }
+
           // Update Schedule reminderSent flag
           schedule.reminderSent = true;
           await schedule.save();
@@ -157,6 +172,19 @@ export const startReminderCron = () => {
               });
 
               emitNotificationNew(userId, newNotif);
+
+              // Send email notification if enabled
+              try {
+                const user = await User.findById(userId).select('emailNotifications notificationEmail email');
+                if (user && (user as any).emailNotifications) {
+                  const emailTo = (user as any).notificationEmail || user.email;
+                  if (emailTo) {
+                    await sendReminderEmail(emailTo, instance.title, eventTimeText, remainingText);
+                  }
+                }
+              } catch (emailErr) {
+                console.error('📧 Error checking/sending email notification (recurring):', emailErr);
+              }
             }
           }
         }

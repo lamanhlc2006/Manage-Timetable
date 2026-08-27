@@ -16,6 +16,10 @@ export interface IUser extends Document {
     token_type?: string | null;
   };
   lastGoogleSyncAt?: Date;
+  bufferMinutes?: number;
+  emailNotifications?: boolean;
+  notificationEmail?: string;
+  calendarFeedToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +29,7 @@ export interface IRecurrence {
   interval: number;
   daysOfWeek?: number[];
   endDate?: Date;
+  count?: number;
   exceptions?: Date[];
 }
 
@@ -43,6 +48,7 @@ export interface ISchedule extends Document {
   isException?: boolean;
   parentEvent?: Types.ObjectId | ISchedule;
   isPublic?: boolean;
+  isAllDay?: boolean;
   reminderMinutes?: number | null;
   reminderSent?: boolean;
   googleEventId?: string;
