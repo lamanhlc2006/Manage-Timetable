@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Space, Badge, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Modal, Form, Input, DatePicker, Select, Button, Space, Badge, InputNumber, Tag, message } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ScheduleEvent } from '../services/scheduleService';
@@ -7,12 +7,22 @@ import { ScheduleEvent } from '../services/scheduleService';
 const { Option } = Select;
 
 const colorOptions = [
-  { label: 'Blue (Mặc định)', value: '#1890ff' },
-  { label: 'Green (Học tập)', value: '#52c41a' },
-  { label: 'Orange (Họp hành)', value: '#fa8c16' },
-  { label: 'Red (Quan trọng)', value: '#f5222d' },
-  { label: 'Purple (Cá nhân)', value: '#722ed1' },
-  { label: 'Cyan (Dự án)', value: '#13c2c2' },
+  { label: 'Xanh dương (Mặc định)', value: '#1890ff' },
+  { label: 'Xanh đậm', value: '#1d39c4' },
+  { label: 'Xanh lá', value: '#52c41a' },
+  { label: 'Xanh lá nhạt', value: '#a0d911' },
+  { label: 'Cyan', value: '#13c2c2' },
+  { label: 'Cam', value: '#fa8c16' },
+  { label: 'Vàng', value: '#fadb14' },
+  { label: 'Đỏ', value: '#f5222d' },
+  { label: 'Đỏ đậm', value: '#cf1322' },
+  { label: 'Hồng', value: '#eb2f96' },
+  { label: 'Hồng nhạt', value: '#ff85c0' },
+  { label: 'Tím', value: '#722ed1' },
+  { label: 'Tím nhạt', value: '#b37feb' },
+  { label: 'Nâu', value: '#8B4513' },
+  { label: 'Xám', value: '#8c8c8c' },
+  { label: 'Đen', value: '#262626' },
 ];
 
 interface EventFormModalProps {
@@ -42,6 +52,30 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
+  const [isCustomReminder, setIsCustomReminder] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState<number>(10);
+
+  // Tag sanitization: strip special chars, auto-prefix '#'
+  const sanitizeTag = (tag: string): string | null => {
+    // Remove special characters, keep letters (including Vietnamese), digits, underscore, hyphen
+    let cleaned = tag.replace(/[.,\/?<>!@$%^&*()=+\[\]{}|\\;:'"~`]/g, '').trim();
+    if (!cleaned) return null;
+    // Auto-prefix '#' if not already present
+    if (!cleaned.startsWith('#')) {
+      cleaned = '#' + cleaned;
+    }
+    return cleaned;
+  };
+
+  const PRESET_REMINDERS = [
+    { value: null, label: t('calendar.reminderNone', 'Không nhắc nhở') },
+    { value: 5, label: t('calendar.reminder5mOption', '5 phút trước') },
+    { value: 15, label: t('calendar.reminder15mOption', '15 phút trước') },
+    { value: 30, label: t('calendar.reminder30mOption', '30 phút trước') },
+    { value: 60, label: t('calendar.reminder1hOption', '1 giờ trước') },
+    { value: 1440, label: t('calendar.reminder1dOption', '1 ngày trước') },
+    { value: -1, label: t('calendar.reminderCustom', 'Tuỳ chỉnh...') },
+  ];
 
   useEffect(() => {
     if (visible) {
@@ -60,8 +94,19 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           recurrenceEndDate: event.recurrence?.endDate ? dayjs(event.recurrence.endDate) : null,
           reminderMinutes: event.reminderMinutes !== undefined ? event.reminderMinutes : null,
         });
+        // Detect custom reminder
+        const presetValues = [null, 5, 15, 30, 60, 1440];
+        const rm = event.reminderMinutes;
+        if (rm !== undefined && rm !== null && !presetValues.includes(rm)) {
+          setIsCustomReminder(true);
+          setCustomMinutes(rm);
+          form.setFieldValue('reminderMinutes', -1);
+        } else {
+          setIsCustomReminder(false);
+        }
       } else {
         form.resetFields();
+        setIsCustomReminder(false);
         if (event) {
           form.setFieldsValue({
             title: event.title || '',
@@ -110,7 +155,20 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         return;
       }
 
-      // Pass raw form values to parent handler — let parent handle save/conflict/close logic
+      // Sanitize tags: strip special chars, auto-prefix '#', remove empty/dupes
+      if (values.tags && values.tags.length > 0) {
+        const sanitized = values.tags
+          .map((tag: string) => sanitizeTag(tag))
+          .filter((tag: string | null): tag is string => tag !== null);
+        values.tags = [...new Set(sanitized)]; // deduplicate
+      }
+
+      // Resolve custom reminder: -1 sentinel → actual minutes
+      if (values.reminderMinutes === -1 && isCustomReminder) {
+        values.reminderMinutes = customMinutes;
+      }
+
+      // Pass processed form values to parent handler
       await onSubmit(values, mode);
     } catch (err: any) {
       if (err.errorFields) return; // form validation error, antd handles display
@@ -173,15 +231,6 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               <Option key={cat._id || cat.name} value={cat.name}>
                 <Space>
                   <span>{cat.icon || '📌'}</span>
-                  <span
-                    style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: cat.color,
-                      display: 'inline-block',
-                    }}
-                  />
                   {cat.name}
                 </Space>
               </Option>
@@ -195,21 +244,33 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             placeholder={t('calendar.tagsPlaceholder')}
             style={{ width: '100%' }}
             tokenSeparators={[',', ' ']}
+            onChange={(values: string[]) => {
+              const sanitized = values
+                .map((v) => sanitizeTag(v))
+                .filter((v): v is string => v !== null);
+              const unique = [...new Set(sanitized)];
+              if (sanitized.length < values.length) {
+                message.warning(t('calendar.tagInvalidChars', 'Thẻ không được chứa ký tự đặc biệt'));
+              }
+              form.setFieldValue('tags', unique);
+            }}
+            tagRender={(props) => {
+              const { label, closable, onClose } = props;
+              return (
+                <Tag
+                  color="blue"
+                  closable={closable}
+                  onClose={onClose}
+                  style={{ marginRight: 3 }}
+                >
+                  {label}
+                </Tag>
+              );
+            }}
           >
             {tagsList.map((tag) => (
-              <Option key={tag._id} value={tag.name}>
-                <Space>
-                  <span
-                    style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: tag.color,
-                      display: 'inline-block',
-                    }}
-                  />
-                  {tag.name}
-                </Space>
+              <Option key={tag._id} value={tag.name.startsWith('#') ? tag.name : `#${tag.name}`}>
+                {tag.name.startsWith('#') ? tag.name : `#${tag.name}`}
               </Option>
             ))}
           </Select>
@@ -234,15 +295,40 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         </Form.Item>
 
         <Form.Item name="reminderMinutes" label={t('calendar.reminderLabel', 'Nhắc nhở trước')}>
-          <Select placeholder={t('calendar.selectReminderPlaceholder', 'Chọn thời gian nhắc nhở')}>
-            <Option value={null}>{t('calendar.reminderNone', 'Không nhắc nhở')}</Option>
-            <Option value={5}>{t('calendar.reminder5mOption', '5 phút trước')}</Option>
-            <Option value={15}>{t('calendar.reminder15mOption', '15 phút trước')}</Option>
-            <Option value={30}>{t('calendar.reminder30mOption', '30 phút trước')}</Option>
-            <Option value={60}>{t('calendar.reminder1hOption', '1 giờ trước')}</Option>
-            <Option value={1440}>{t('calendar.reminder1dOption', '1 ngày trước')}</Option>
+          <Select
+            placeholder={t('calendar.selectReminderPlaceholder', 'Chọn thời gian nhắc nhở')}
+            onChange={(value) => {
+              if (value === -1) {
+                setIsCustomReminder(true);
+              } else {
+                setIsCustomReminder(false);
+              }
+            }}
+          >
+            {PRESET_REMINDERS.map((opt) => (
+              <Option key={String(opt.value)} value={opt.value}>
+                {opt.label}
+              </Option>
+            ))}
           </Select>
         </Form.Item>
+
+        {isCustomReminder && (
+          <Form.Item label={t('calendar.reminderCustomInput', 'Nhắc trước (phút)')}>
+            <InputNumber
+              min={1}
+              max={1440}
+              value={customMinutes}
+              onChange={(v) => setCustomMinutes(v || 10)}
+              addonAfter={t('calendar.reminderMinutesUnit', 'phút')}
+              style={{ width: '100%' }}
+              placeholder="1 - 1440"
+            />
+            <div style={{ color: '#999', fontSize: '12px', marginTop: '4px' }}>
+              {t('calendar.reminderCustomHint', 'Tối đa 1440 phút (= 1 ngày)')}
+            </div>
+          </Form.Item>
+        )}
 
         <Form.Item
           name="range"
@@ -264,11 +350,13 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 <Space>
                   <span
                     style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '4px',
                       backgroundColor: opt.value,
                       display: 'inline-block',
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      verticalAlign: 'middle',
                     }}
                   />
                   {opt.label}

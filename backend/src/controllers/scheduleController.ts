@@ -216,24 +216,21 @@ export const createSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const force = req.body.force === true || req.body.forceCreate === true;
+    // Always check for time conflicts — overlapping events are not allowed
+    const overlapping = await checkScheduleConflicts(
+      req.user._id.toString(),
+      start,
+      end,
+      undefined,
+      req.body.recurrence
+    );
 
-    if (!force) {
-      const overlapping = await checkScheduleConflicts(
-        req.user._id.toString(),
-        start,
-        end,
-        undefined,
-        req.body.recurrence
-      );
-
-      if (overlapping.length > 0) {
-        res.status(409).json({
-          message: 'Phát hiện lịch trình bị trùng lặp!',
-          conflicts: overlapping,
-        });
-        return;
-      }
+    if (overlapping.length > 0) {
+      res.status(409).json({
+        message: 'Phát hiện lịch trình bị trùng lặp!',
+        conflicts: overlapping,
+      });
+      return;
     }
 
     const reminderMinutes = req.body.reminderMinutes !== undefined ? req.body.reminderMinutes : null;
@@ -345,9 +342,11 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const force = req.body.force === true || req.body.forceCreate === true;
+    // Skip conflict check for status-only updates (toggle complete/pending)
+    const isStatusOnlyUpdate = req.body.status !== undefined &&
+      !req.body.title && !req.body.startTime && !req.body.endTime && !req.body.recurrence;
 
-    if (!force && req.user) {
+    if (!isStatusOnlyUpdate && req.user) {
       const effectiveRecurrence = recurrence !== undefined ? recurrence : schedule.recurrence;
       const overlapping = await checkScheduleConflicts(
         req.user._id.toString(),
@@ -386,6 +385,8 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
         category: category !== undefined ? category : schedule.category,
         tags: tags !== undefined ? tags : schedule.tags,
         priority: priority !== undefined ? priority : schedule.priority,
+        status: req.body.status !== undefined ? req.body.status : (schedule as any).status || 'pending',
+        reminderMinutes: req.body.reminderMinutes !== undefined ? req.body.reminderMinutes : schedule.reminderMinutes,
         createdBy: req.user?._id || schedule.createdBy,
         isException: true,
         parentEvent: schedule._id,
@@ -428,6 +429,8 @@ export const updateSchedule = async (req: AuthRequest, res: Response): Promise<v
         category: category !== undefined ? category : schedule.category,
         tags: tags !== undefined ? tags : schedule.tags,
         priority: priority !== undefined ? priority : schedule.priority,
+        status: req.body.status !== undefined ? req.body.status : (schedule as any).status || 'pending',
+        reminderMinutes: req.body.reminderMinutes !== undefined ? req.body.reminderMinutes : schedule.reminderMinutes,
         recurrence: newRecurrence,
         createdBy: req.user?._id || schedule.createdBy,
       });

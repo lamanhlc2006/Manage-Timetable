@@ -213,11 +213,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       await executeSave(false);
     } catch (err: any) {
       if (err.response?.status === 409 && err.response.data?.conflicts) {
-        Modal.confirm({
+        Modal.warning({
           title: t('calendar.conflictWarningTitle'),
           content: (
             <div>
-              <p>{t('calendar.conflictWarningSub')}</p>
+              <p>{t('calendar.conflictBlockedMsg', 'Không thể tạo sự kiện vì bị trùng lịch với:')}</p>
               <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
                 {err.response.data.conflicts.map((conflict: any) => (
                   <li key={conflict._id} style={{ marginBottom: '8px' }}>
@@ -228,12 +228,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   </li>
                 ))}
               </ul>
+              <p style={{ marginTop: '12px', color: '#666' }}>
+                {t('calendar.conflictBlockedHint', 'Vui lòng chọn khung giờ khác để tránh trùng lịch.')}
+              </p>
             </div>
           ),
-          okText: t('calendar.forceSave'),
-          okType: 'danger',
-          cancelText: t('common.cancel'),
-          onOk: () => executeSave(true),
+          okText: t('common.understood', 'Đã hiểu'),
         });
       } else {
         message.error(err.response?.data?.message || 'Đã xảy ra lỗi.');
@@ -343,11 +343,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       await executeSave(false);
     } catch (err: any) {
       if (err.response?.status === 409 && err.response.data?.conflicts) {
-        Modal.confirm({
+        Modal.warning({
           title: t('calendar.conflictWarningTitle'),
           content: (
             <div>
-              <p>{t('calendar.conflictWarningSub')}</p>
+              <p>{t('calendar.conflictBlockedMsg', 'Không thể lưu sự kiện vì bị trùng lịch với:')}</p>
               <ul style={{ paddingLeft: '16px', listStyleType: 'disc', maxHeight: '180px', overflowY: 'auto' }}>
                 {err.response.data.conflicts.map((conflict: any) => (
                   <li key={conflict._id} style={{ marginBottom: '8px' }}>
@@ -358,13 +358,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                   </li>
                 ))}
               </ul>
-              <p style={{ marginTop: '12px', fontWeight: 500, color: '#ff4d4f' }}>{t('calendar.conflictWarningConfirm')}</p>
+              <p style={{ marginTop: '12px', color: '#666' }}>
+                {t('calendar.conflictBlockedHint', 'Vui lòng chọn khung giờ khác để tránh trùng lịch.')}
+              </p>
             </div>
           ),
-          okText: t('calendar.forceSave'),
-          okType: 'danger',
-          cancelText: t('common.cancel'),
-          onOk: () => executeSave(true),
+          okText: t('common.understood', 'Đã hiểu'),
         });
       } else {
         throw err;
@@ -399,7 +398,23 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   const handleToggleStatus = async (eventId: string, newStatus: 'pending' | 'completed') => {
     try {
-      await onUpdate(eventId, { status: newStatus, recurrenceEditMode: 'all', force: true } as any);
+      const isVirtual = eventId.includes('_');
+      const event = selectedEvent;
+      const isRecurring = event?.recurrence && event.recurrence.type !== 'none';
+
+      if (isVirtual || isRecurring) {
+        // Recurring event: only update the current instance, not all
+        await onUpdate(eventId, {
+          status: newStatus,
+          recurrenceEditMode: 'current',
+          instanceDate: event?.startTime,
+          force: true,
+        } as any);
+      } else {
+        // Non-recurring event: update directly
+        await onUpdate(eventId, { status: newStatus, force: true } as any);
+      }
+
       message.success(
         newStatus === 'completed' ? t('calendar.statusCompleted') : t('calendar.statusPending')
       );
