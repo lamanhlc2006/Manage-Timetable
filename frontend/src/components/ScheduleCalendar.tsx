@@ -9,15 +9,20 @@ import {
 } from '../services/categoryService';
 import { fetchTags, TagItem } from '../services/tagService';
 import { fetchUsers } from '../services/userService';
+import { DEFAULT_CATEGORY } from '../constants';
 import {
   PlusOutlined,
   DownloadOutlined,
   BarChartOutlined,
+  ShareAltOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import { PomodoroModal } from './PomodoroModal';
 import { TimelineView } from './TimelineView';
 import { TagFilterBar } from './TagFilterBar';
 import { IcsImportModal } from './IcsImportModal';
+const ShareCalendarModal = React.lazy(() => import('./ShareCalendarModal'));
+const TemplateModal = React.lazy(() => import('./TemplateModal'));
 import { ExportModal } from './ExportModal';
 import { useTranslation } from 'react-i18next';
 
@@ -54,6 +59,7 @@ interface ScheduleCalendarProps {
     endTime?: string;
     creator?: string;
   }) => void;
+  readOnly?: boolean;
 }
 
 export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
@@ -65,6 +71,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onDelete,
   onPatchTime,
   onFilterChange,
+  readOnly = false,
 }) => {
   const { t } = useTranslation();
   const calendarRef = useRef<FullCalendar>(null);
@@ -83,6 +90,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [isImportModalVisible, setIsImportModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
 
   // Recurrence action dialog states
@@ -274,7 +283,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       color: '#1890ff',
-      category: categoriesList[0]?.name || 'Học tập',
+      category: categoriesList[0]?.name || DEFAULT_CATEGORY,
       tags: [],
       priority: 'medium',
     };
@@ -335,7 +344,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       form.setFieldsValue({
         title: '', description: '', color: '#1890ff',
         range: [initialStart, initialEnd],
-        category: categoriesList[0]?.name || 'Học tập',
+        category: categoriesList[0]?.name || DEFAULT_CATEGORY,
         tags: [], priority: 'medium',
         recurrenceType: 'none', recurrenceInterval: 1,
         recurrenceDaysOfWeek: [], recurrenceEndDate: null,
@@ -355,7 +364,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         description: selectedEvent.description || '',
         color: selectedEvent.color,
         range: [dayjs(selectedEvent.startTime), dayjs(selectedEvent.endTime)],
-        category: selectedEvent.category || 'Học tập',
+        category: selectedEvent.category || DEFAULT_CATEGORY,
         tags: selectedEvent.tags || [],
         priority: selectedEvent.priority || 'medium',
         recurrenceType: selectedEvent.recurrence?.type || 'none',
@@ -567,7 +576,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       form.setFieldsValue({
         title: '', description: '', color: '#1890ff',
         range: [start, end],
-        category: categoriesList[0]?.name || 'Học tập',
+        category: categoriesList[0]?.name || DEFAULT_CATEGORY,
         tags: [], priority: 'medium',
         recurrenceType: 'none', recurrenceInterval: 1,
         recurrenceDaysOfWeek: [], recurrenceEndDate: null,
@@ -731,6 +740,20 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           >
             Timeline
           </Button>
+          <Button
+            icon={<ShareAltOutlined />}
+            onClick={() => setShowShareModal(true)}
+            style={{ borderRadius: '6px' }}
+          >
+            {t('share.shareButton', 'Chia sẻ')}
+          </Button>
+          <Button
+            icon={<AppstoreOutlined />}
+            onClick={() => setShowTemplateModal(true)}
+            style={{ borderRadius: '6px' }}
+          >
+            {t('template.button', 'Templates')}
+          </Button>
         </Space>
       </div>
 
@@ -763,11 +786,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             allDaySlot={true}
             allDayText="Cả ngày"
             firstDay={1}
-            editable={true}
-            eventStartEditable={true}
-            eventDurationEditable={true}
-            selectable={true}
-            selectMirror={true}
+            editable={!readOnly}
+            eventStartEditable={!readOnly}
+            eventDurationEditable={!readOnly}
+            selectable={!readOnly}
+            selectMirror={!readOnly}
             dayMaxEvents={3}
             nowIndicator={true}
             events={events}
@@ -864,6 +887,21 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         onClose={() => setIsExportModalVisible(false)}
         schedules={schedules}
       />
+
+      <React.Suspense fallback={null}>
+        <ShareCalendarModal
+          open={showShareModal}
+          onClose={() => setShowShareModal(false)}
+        />
+      </React.Suspense>
+
+      <React.Suspense fallback={null}>
+        <TemplateModal
+          open={showTemplateModal}
+          onClose={() => setShowTemplateModal(false)}
+          onApplied={() => onFilterChange({ startTime: currentRange?.start, endTime: currentRange?.end })}
+        />
+      </React.Suspense>
     </div>
   );
 };

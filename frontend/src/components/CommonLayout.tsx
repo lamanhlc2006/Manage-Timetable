@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   SettingOutlined,
   BellOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PomodoroModal } from './PomodoroModal';
@@ -267,6 +268,7 @@ export const CommonLayout: React.FC = () => {
       { key: 'dashboard', icon: <CalendarOutlined />, label: t('nav.timetable'), onClick: () => navigate('/dashboard') },
       { key: 'analytics', icon: <BarChartOutlined />, label: t('nav.analytics'), onClick: () => navigate('/analytics') },
       { key: 'settings', icon: <SettingOutlined />, label: t('nav.settings'), onClick: () => navigate('/settings') },
+      { key: 'groups', icon: <TeamOutlined />, label: t('nav.groups', 'Nhóm'), onClick: () => navigate('/groups') },
     ];
     if (user && user.role === 'admin') {
       items.push(

@@ -33,6 +33,7 @@ import { logFocusSession } from '../services/focusService';
 import { playChimeSound } from '../utils/soundHelper';
 import { triggerConfetti } from '../utils/confetti';
 import { fetchSchedules, ScheduleEvent } from '../services/scheduleService';
+import { DEFAULT_CATEGORY } from '../constants';
 
 const { Text } = Typography;
 
@@ -70,7 +71,7 @@ export const PomodoroModal: React.FC<PomodoroModalProps> = ({
   // Link event state
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(initialEvent?.id);
   const [customTitle, setCustomTitle] = useState<string>(initialEvent?.title || t('pomodoro.defaultTask'));
-  const [category, setCategory] = useState<string>(initialEvent?.category || 'Học tập');
+  const [category, setCategory] = useState<string>(initialEvent?.category || DEFAULT_CATEGORY);
 
   // Audio & Notification toggles
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);

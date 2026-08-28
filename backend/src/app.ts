@@ -10,6 +10,10 @@ import notificationRoutes from './routes/notificationRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import tagRoutes from './routes/tagRoutes';
 import focusSessionRoutes from './routes/focusSessionRoutes';
+import shareRoutes from './routes/shareRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import templateRoutes from './routes/templateRoutes';
+import groupRoutes from './routes/groupRoutes';
 import { authLimiter, scheduleLimiter } from './middlewares/rateLimiter';
 import { globalErrorHandler } from './middlewares/errorHandler';
 
@@ -58,6 +62,10 @@ export const createApp = () => {
   app.use('/api/categories', categoryRoutes);
   app.use('/api/tags', tagRoutes);
   app.use('/api/focus-sessions', focusSessionRoutes);
+  app.use('/api/share', shareRoutes);
+  app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/templates', templateRoutes);
+  app.use('/api/groups', groupRoutes);
 
   app.get('/', (req, res) => {
     res.send('Timetable Management API is running...');

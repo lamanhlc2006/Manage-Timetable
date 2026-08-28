@@ -1,4 +1,5 @@
 import api from './api';
+import { DEFAULT_CATEGORY } from '../constants';
 
 export interface CategoryItem {
   _id: string;
@@ -19,7 +20,7 @@ const getOfflineCategories = (): CategoryItem[] => {
   const data = localStorage.getItem('categories_data');
   if (!data) {
     const defaults: CategoryItem[] = [
-      { _id: 'cat-1', name: 'Học tập', color: '#1890ff', icon: '📚', isSystem: true },
+      { _id: 'cat-1', name: DEFAULT_CATEGORY, color: '#1890ff', icon: '📚', isSystem: true },
       { _id: 'cat-2', name: 'Công việc', color: '#52c41a', icon: '💼', isSystem: true },
       { _id: 'cat-3', name: 'Cá nhân', color: '#722ed1', icon: '👤', isSystem: true },
       { _id: 'cat-4', name: 'Khác', color: '#fa8c16', icon: '🔍', isSystem: true },

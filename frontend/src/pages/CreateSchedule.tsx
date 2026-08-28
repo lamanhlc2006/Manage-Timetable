@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, DatePicker, Select, Button, Space, message } from 'antd';
-import { PlusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Card, Form, Input, DatePicker, Select, Button, Space, message, Alert } from 'antd';
+import { PlusCircleOutlined, ArrowLeftOutlined, WarningOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { createSchedule, CreateScheduleInput } from '../services/scheduleService';
@@ -75,6 +75,21 @@ export const CreateSchedule: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '650px', margin: '0 auto', padding: '12px 0' }}>
+      <Alert
+        message="⚠️ Trang này đã được thay thế"
+        description={
+          <span>
+            Bạn có thể tạo lịch trình nhanh hơn trực tiếp trên <strong>Dashboard</strong> bằng cách click vào calendar hoặc nhấn nút <strong>Quick Add</strong>.{' '}
+            <Button type="link" size="small" onClick={() => navigate('/dashboard')} style={{ padding: 0 }}>
+              Đi tới Dashboard →
+            </Button>
+          </span>
+        }
+        type="warning"
+        showIcon
+        icon={<WarningOutlined />}
+        style={{ marginBottom: 16, borderRadius: 8 }}
+      />
       <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Button 
           icon={<ArrowLeftOutlined />} 

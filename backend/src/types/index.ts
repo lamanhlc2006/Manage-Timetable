@@ -48,6 +48,7 @@ export interface ISchedule extends Document {
   isException?: boolean;
   parentEvent?: Types.ObjectId | ISchedule;
   isPublic?: boolean;
+  group?: Types.ObjectId;
   isAllDay?: boolean;
   reminderMinutes?: number | null;
   reminderSent?: boolean;

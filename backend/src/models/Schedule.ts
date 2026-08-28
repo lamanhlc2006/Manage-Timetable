@@ -1,5 +1,6 @@
 import { Schema, model, Types } from 'mongoose';
 import { ISchedule } from '../types';
+import { DEFAULT_CATEGORY } from '../constants';
 
 const ScheduleSchema = new Schema<ISchedule>(
   {
@@ -27,7 +28,7 @@ const ScheduleSchema = new Schema<ISchedule>(
     category: {
       type: String,
       trim: true,
-      default: 'Học tập',
+      default: DEFAULT_CATEGORY,
     },
     tags: [
       {
@@ -79,6 +80,10 @@ const ScheduleSchema = new Schema<ISchedule>(
     isPublic: {
       type: Boolean,
       default: false,
+    },
+    group: {
+      type: Schema.Types.ObjectId,
+      ref: 'Group',
     },
     isAllDay: {
       type: Boolean,
@@ -134,5 +139,6 @@ ScheduleSchema.index({ tags: 1 });
 ScheduleSchema.index({ priority: 1 });
 ScheduleSchema.index({ startTime: 1, endTime: 1 });
 ScheduleSchema.index({ title: 'text', description: 'text' });
+ScheduleSchema.index({ group: 1 });
 
 export const Schedule = model<ISchedule>('Schedule', ScheduleSchema);

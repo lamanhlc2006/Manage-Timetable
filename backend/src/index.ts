@@ -8,9 +8,12 @@ import { connectDB } from './config/db';
 import { createApp } from './app';
 import { initSocket } from './config/socket';
 import { startReminderCron } from './services/reminderCron';
+import { seedTemplates } from './seeds/templateSeeds';
 
 // Connect to Database
-connectDB();
+connectDB().then(async () => {
+  await seedTemplates();
+});
 
 // Create Express app
 const app = createApp();

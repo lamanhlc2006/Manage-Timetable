@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Spin, Radio, Typography, Empty, Progress, Divider } from 'antd';
-import { Column, Pie } from '@ant-design/charts';
+import { Card, Row, Col, Statistic, Spin, Radio, Typography, Empty, Progress, Divider, Tooltip } from 'antd';
+import { Column, Pie, Line } from '@ant-design/charts';
 import {
   ClockCircleOutlined,
   CalendarOutlined,
@@ -8,11 +8,16 @@ import {
   FireOutlined,
   CheckCircleOutlined,
   TrophyOutlined,
+  HeatMapOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
 import { fetchSchedules, ScheduleEvent } from '../services/scheduleService';
 import { fetchFocusStats, FocusStats } from '../services/focusService';
+import { fetchAdvancedAnalytics, AdvancedAnalytics } from '../services/analyticsService';
 import { useTranslation } from 'react-i18next';
+
+dayjs.extend(isoWeek);
 
 const { Title, Text } = Typography;
 
@@ -20,6 +25,7 @@ export const Analytics: React.FC = () => {
   const { t } = useTranslation();
   const [schedules, setSchedules] = useState<ScheduleEvent[]>([]);
   const [focusStats, setFocusStats] = useState<FocusStats | null>(null);
+  const [advancedData, setAdvancedData] = useState<AdvancedAnalytics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [timeFilter, setTimeFilter] = useState<'7days' | '30days' | 'all'>('30days');
 
@@ -28,22 +34,29 @@ export const Analytics: React.FC = () => {
       setLoading(true);
       let startTime: string | undefined;
       let endTime: string | undefined;
+      let weeks = 8;
 
       if (timeFilter === '7days') {
         startTime = dayjs().subtract(7, 'day').startOf('day').toISOString();
         endTime = dayjs().endOf('day').toISOString();
+        weeks = 4;
       } else if (timeFilter === '30days') {
         startTime = dayjs().subtract(30, 'day').startOf('day').toISOString();
         endTime = dayjs().endOf('day').toISOString();
+        weeks = 8;
+      } else {
+        weeks = 12;
       }
 
-      const [schedulesData, focusData] = await Promise.all([
+      const [schedulesData, focusData, advanced] = await Promise.all([
         fetchSchedules({ startTime, endTime }),
         fetchFocusStats({ startTime, endTime }),
+        fetchAdvancedAnalytics(weeks),
       ]);
 
       setSchedules(schedulesData);
       setFocusStats(focusData);
+      setAdvancedData(advanced);
     } catch (err) {
       console.error('Error fetching analytics schedules:', err);
     } finally {
@@ -293,6 +306,189 @@ export const Analytics: React.FC = () => {
                 ) : (
                   <div style={{ height: 300 }}>
                     <Column {...(completedColumnConfig as any)} />
+                  </div>
+                )}
+              </Card>
+            </Col>
+          </Row>
+
+          {/* === Advanced Analytics Section === */}
+          <Divider orientation="left" style={{ margin: '24px 0 16px 0' }}>
+            <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#13c2c2' }}>
+              <HeatMapOutlined /> {t('analytics.advancedTitle', 'Phân tích nâng cao')}
+            </Title>
+          </Divider>
+
+          {/* Stacked Bar: Category Distribution by Week + KPI Completion Circle */}
+          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+            <Col xs={24} lg={16}>
+              <Card
+                title={t('analytics.categoryByWeek', 'Phân bổ giờ theo danh mục (tuần)')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+              >
+                {!advancedData || advancedData.categoryDistribution.length === 0 ? (
+                  <Empty description={t('analytics.noData')} />
+                ) : (
+                  <div style={{ height: 320 }}>
+                    <Column
+                      {...({
+                        data: advancedData.categoryDistribution.map((d) => ({
+                          week: `W${d._id.week}`,
+                          category: d._id.category,
+                          hours: Number(d.hours.toFixed(1)),
+                        })),
+                        isStack: true,
+                        xField: 'week',
+                        yField: 'hours',
+                        seriesField: 'category',
+                        label: { position: 'middle', style: { fill: '#fff', fontSize: 10 } },
+                        columnStyle: { radius: [4, 4, 0, 0] },
+                        tooltip: { formatter: (datum: any) => ({ name: datum.category, value: `${datum.hours}h` }) },
+                      } as any)}
+                    />
+                  </div>
+                )}
+              </Card>
+            </Col>
+
+            <Col xs={24} lg={8}>
+              <Card
+                title={t('analytics.completionKPI', 'Tỷ lệ hoàn thành')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', height: '100%' }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 20 }}>
+                  <Progress
+                    type="dashboard"
+                    percent={stats.completionRate}
+                    size={160}
+                    strokeColor={{
+                      '0%': '#ff4d4f',
+                      '50%': '#faad14',
+                      '100%': '#52c41a',
+                    }}
+                    format={(pct) => (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 28, fontWeight: 'bold' }}>{pct}%</div>
+                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                          {stats.completedCount}/{stats.totalCount}
+                        </div>
+                      </div>
+                    )}
+                  />
+                  <Text type="secondary" style={{ textAlign: 'center', fontSize: 13 }}>
+                    {t('analytics.completionKPIDesc', 'Sự kiện hoàn thành / Tổng số sự kiện')}
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Line Chart: Weekly Hours Trend + Heatmap */}
+          <Row gutter={[16, 16]} style={{ marginBottom: '32px' }}>
+            <Col xs={24} lg={12}>
+              <Card
+                title={t('analytics.weeklyTrend', 'Xu hướng giờ làm việc')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+              >
+                {!advancedData || advancedData.completionTrend.length === 0 ? (
+                  <Empty description={t('analytics.noData')} />
+                ) : (
+                  <div style={{ height: 300 }}>
+                    <Line
+                      {...({
+                        data: advancedData.completionTrend.map((d) => ({
+                          week: `W${d.week || d._id.week}`,
+                          hours: d.totalHours,
+                        })),
+                        xField: 'week',
+                        yField: 'hours',
+                        smooth: true,
+                        point: { size: 4, shape: 'circle' },
+                        color: '#1890ff',
+                        area: { style: { fill: 'l(270) 0:#ffffff 1:#1890ff33' } },
+                        yAxis: { title: { text: 'Giờ' } },
+                        tooltip: { formatter: (datum: any) => ({ name: 'Giờ', value: `${datum.hours}h` }) },
+                      } as any)}
+                    />
+                  </div>
+                )}
+              </Card>
+            </Col>
+
+            <Col xs={24} lg={12}>
+              <Card
+                title={t('analytics.busyHeatmap', 'Biểu đồ nhiệt hoạt động (Thứ × Giờ)')}
+                variant="borderless"
+                style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+              >
+                {!advancedData || advancedData.heatmapData.length === 0 ? (
+                  <Empty description={t('analytics.noData')} />
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    {(() => {
+                      const dayLabelsMap: Record<number, string> = {
+                        1: 'CN', 2: 'T2', 3: 'T3', 4: 'T4', 5: 'T5', 6: 'T6', 7: 'T7',
+                      };
+                      const grid: Record<string, number> = {};
+                      let maxCount = 1;
+                      advancedData.heatmapData.forEach((d) => {
+                        const key = `${d._id.dayOfWeek}-${d._id.hour}`;
+                        grid[key] = d.count;
+                        if (d.count > maxCount) maxCount = d.count;
+                      });
+                      const hours = Array.from({ length: 24 }, (_, i) => i);
+                      const days = [2, 3, 4, 5, 6, 7, 1]; // Mon→Sun
+                      return (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: 30, padding: 2 }} />
+                              {hours.map((h) => (
+                                <th key={h} style={{ padding: '2px 1px', textAlign: 'center', color: '#8c8c8c', fontWeight: 400 }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {days.map((d) => (
+                              <tr key={d}>
+                                <td style={{ padding: '2px 4px', fontWeight: 500, color: '#595959' }}>
+                                  {dayLabelsMap[d]}
+                                </td>
+                                {hours.map((h) => {
+                                  const count = grid[`${d}-${h}`] || 0;
+                                  const intensity = count / maxCount;
+                                  const bg = count === 0
+                                    ? '#f5f5f5'
+                                    : `rgba(24, 144, 255, ${0.15 + intensity * 0.85})`;
+                                  return (
+                                    <td key={h} style={{ padding: 1 }}>
+                                      <Tooltip title={`${dayLabelsMap[d]} ${h}:00 — ${count} sự kiện`}>
+                                        <div
+                                          style={{
+                                            width: '100%',
+                                            aspectRatio: '1',
+                                            minWidth: 14,
+                                            minHeight: 14,
+                                            borderRadius: 3,
+                                            background: bg,
+                                            cursor: 'pointer',
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 )}
               </Card>

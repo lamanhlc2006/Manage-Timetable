@@ -3,6 +3,7 @@ import { Modal, Form, Input, DatePicker, Select, Button, Space, Badge, InputNumb
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ScheduleEvent } from '../services/scheduleService';
+import { DEFAULT_CATEGORY } from '../constants';
 
 const { Option } = Select;
 
@@ -95,7 +96,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           description: event.description || '',
           color: event.color,
           range: [dayjs(event.startTime), dayjs(event.endTime)],
-          category: event.category || 'Học tập',
+          category: event.category || DEFAULT_CATEGORY,
           tags: event.tags || [],
           priority: event.priority || 'medium',
           recurrenceType: event.recurrence?.type || 'none',
@@ -130,7 +131,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               event.startTime ? dayjs(event.startTime) : dayjs().hour(9).minute(0).second(0),
               event.endTime ? dayjs(event.endTime) : dayjs().hour(10).minute(0).second(0),
             ],
-            category: event.category || categoriesList[0]?.name || 'Học tập',
+            category: event.category || categoriesList[0]?.name || DEFAULT_CATEGORY,
             tags: event.tags || [],
             priority: event.priority || 'medium',
             recurrenceType: event.recurrence?.type || 'none',
@@ -148,7 +149,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             description: '',
             color: '#1890ff',
             range: [dayjs().hour(9).minute(0).second(0), dayjs().hour(10).minute(0).second(0)],
-            category: categoriesList[0]?.name || 'Học tập',
+            category: categoriesList[0]?.name || DEFAULT_CATEGORY,
             tags: [],
             priority: 'medium',
             recurrenceType: 'none',

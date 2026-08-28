@@ -46,11 +46,17 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+let isAuthCleared = false;
+
 /**
  * Clears authentication state from localStorage, disconnects socket,
  * notifies app listeners and redirects user to /login page.
  */
 export const clearAuthAndRedirect = () => {
+  // Prevent multiple simultaneous auth clears (race condition from parallel 401s)
+  if (isAuthCleared) return;
+  isAuthCleared = true;
+
   localStorage.removeItem('user');
   localStorage.removeItem('token');
   localStorage.removeItem('offlineMode');
@@ -65,8 +71,17 @@ export const clearAuthAndRedirect = () => {
 
   if (!isRedirecting && window.location.pathname !== '/login') {
     isRedirecting = true;
-    window.location.href = '/login';
+    // Small delay to let pending promises settle before hard redirect
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 100);
   }
+
+  // Reset flag after redirect completes
+  setTimeout(() => {
+    isAuthCleared = false;
+    isRedirecting = false;
+  }, 2000);
 };
 
 // Response interceptor to gracefully catch 401 & 429 errors and handle Refresh Token Rotation

@@ -98,46 +98,46 @@ Dark Mode, Pomodoro, i18n (VI/EN), PWA Offline, Admin Panel, Automated Tests.
 
 ## PHASE 4 — Cộng Tác & Chia Sẻ (~36h)
 
-### 4.1 Share Link View-only (~12h)
-- [ ] **BE** — Model ShareLink (token, permission, expiresAt, password?)
-- [ ] **BE** — API: `POST /share/create`, `GET /share/:token`, `DELETE /share/:token`
-- [ ] **FE** — Trang SharedCalendarView.tsx (public, FullCalendar read-only)
-- [ ] **FE** — Route `/shared/:token`, nút "Chia sẻ lịch" + Modal tạo link
+### 4.1 Share Link View-only (~12h) ✅ 28/08/2026
+- [x] **BE** — Model ShareLink (token, permission, expiresAt, password?)
+- [x] **BE** — API: `POST /share/create`, `GET /share/:token`, `DELETE /share/:id`, `GET /share/my-links/list`
+- [x] **FE** — Trang SharedCalendarView.tsx (public, FullCalendar read-only, password prompt)
+- [x] **FE** — Route `/shared/:token`, nút "Chia sẻ lịch" + ShareCalendarModal tạo/quản lý link
 
-### 4.2 Group Collaboration (~24h)
-> ⚠️ **Cần quyết định**: Chỉ chia sẻ lịch hay đầy đủ phân quyền viewer/editor/admin?
-- [ ] **BE** — Model Group (name, owner, members[{user, role}])
-- [ ] **BE** — API: CRUD Group, invite, change role, remove member
-- [ ] **BE** — Schedule: thêm `group?` ref, query logic cho group members
-- [ ] **FE** — Trang GroupManagement.tsx
-- [ ] **FE** — Calendar: dropdown chọn "Lịch cá nhân" / "Lịch nhóm X"
+### 4.2 Group Collaboration (~24h) ✅ 28/08/2026
+> ✅ **Quyết định**: Phân quyền viewer/editor, owner = admin tự động
+- [x] **BE** — Model Group (name, owner, members[{user, role}])
+- [x] **BE** — API: CRUD Group, invite by username, change role, remove member, get group schedules
+- [x] **BE** — Schedule: thêm `group?` ref + index, query logic cho group members
+- [x] **FE** — Trang GroupManagement.tsx (CRUD nhóm + quản lý thành viên)
+- [x] **FE** — Calendar: dropdown chọn "Lịch cá nhân" / "Lịch nhóm X" + readOnly cho viewer
 
 ---
 
 ## PHASE 5 — Thống Kê & Templates (~28h)
 
-### 5.1 Time Analytics Nâng Cao (~16h)
-- [ ] **BE** — API analytics: time-distribution, completion-rate, weekly-trend, heatmap (MongoDB aggregation)
-- [ ] **FE** — Stacked Bar: phân bổ giờ theo Category trong tuần/tháng
-- [ ] **FE** — KPI Card: tỷ lệ hoàn thành đúng hạn (Progress circle)
-- [ ] **FE** — Line Chart: trend giờ làm việc 4-12 tuần
-- [ ] **FE** — Heatmap: busy theo thứ × giờ (7×24 grid)
+### 5.1 Time Analytics Nâng Cao (~16h) ✅ 28/08/2026
+- [x] **BE** — API analytics: time-distribution, completion-rate, weekly-trend, heatmap (MongoDB aggregation)
+- [x] **FE** — Stacked Bar: phân bổ giờ theo Category trong tuần/tháng
+- [x] **FE** — KPI Card: tỷ lệ hoàn thành đúng hạn (Progress circle dashboard)
+- [x] **FE** — Line Chart: trend giờ làm việc 4-12 tuần
+- [x] **FE** — Heatmap: busy theo thứ × giờ (7×24 grid, tooltip, màu gradient)
 
-### 5.2 Timetable Templates (~12h)
-- [ ] **BE** — Model Template (name, category, events[], isSystem)
-- [ ] **BE** — API: GET templates, POST create, POST apply (batch create schedules)
-- [ ] **BE** — Seed 3 preset: 📚 Lịch Sinh Viên, 🏢 Làm Việc Theo Ca, ⏱ Time Blocking
-- [ ] **FE** — TemplateModal.tsx: grid cards, preview, DatePicker chọn ngày bắt đầu
-- [ ] **FE** — Nút "📋 Templates" trên calendar toolbar
+### 5.2 Timetable Templates (~12h) ✅ 28/08/2026
+- [x] **BE** — Model Template (name, category, events[], isSystem) + TemplateEvent sub-schema
+- [x] **BE** — API: GET templates, POST create, DELETE /:id, POST /:id/apply (batch create schedules)
+- [x] **BE** — Seed 3 preset: 📚 Lịch Sinh Viên, 🏢 Làm Việc Theo Ca, ⏱ Time Blocking
+- [x] **FE** — TemplateModal.tsx: grid cards, preview timeline, DatePicker chọn ngày bắt đầu
+- [x] **FE** — Nút "📋 Templates" trên calendar toolbar
 
 ---
 
 ## 🐛 Lỗi Phát Hiện Thêm (Fix Khi Rảnh)
 
-- [ ] `notificationService.ts` (FE): `fetchNotifications()` thiếu params phân trang `page/limit`
-- [ ] `Schedule.category` default `'Học tập'` hardcoded tiếng Việt → nên dùng key/ID
-- [ ] `CreateSchedule.tsx` trùng chức năng với `EventFormModal` → cân nhắc deprecate
-- [ ] Frontend test coverage thấp (2 suites) → cần bổ sung thêm
+- [x] `notificationService.ts` (FE): `fetchNotifications()` thiếu params phân trang → ✅ Đã có `page/limit` params (28/08/2026)
+- [x] `Schedule.category` default `'Học tập'` hardcoded → ✅ Tạo `DEFAULT_CATEGORY` constant, dùng ở 8 files FE + 1 file BE (28/08/2026)
+- [x] `CreateSchedule.tsx` trùng chức năng với `EventFormModal` → ✅ Thêm deprecation banner, redirect tới Dashboard (28/08/2026)
+- [x] Frontend test coverage thấp (2 suites) → ✅ Tăng lên 7 suites, 22 tests (constants, notificationService, templateService, groupService, analyticsService) (28/08/2026)
 
 ---
 

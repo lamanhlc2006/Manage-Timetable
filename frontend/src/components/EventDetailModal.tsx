@@ -4,6 +4,7 @@ import { FireOutlined, DeleteOutlined, EditOutlined, BellOutlined, CheckCircleOu
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ScheduleEvent } from '../services/scheduleService';
+import { DEFAULT_CATEGORY } from '../constants';
 
 interface EventDetailModalProps {
   visible: boolean;
@@ -96,7 +97,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <tr>
               <td style={{ padding: '8px 0', color: '#8c8c8c' }}>Danh mục:</td>
               <td style={{ padding: '8px 0', fontWeight: 500 }}>
-                {event.category || 'Học tập'}
+                {event.category || DEFAULT_CATEGORY}
               </td>
             </tr>
             {event.tags && event.tags.length > 0 && (

@@ -1,5 +1,6 @@
 import api from './api';
 import { addOfflineAction } from './offlineSync';
+import { DEFAULT_CATEGORY } from '../constants';
 
 export interface UserRef {
   _id: string;
@@ -85,7 +86,7 @@ const getOfflineSchedules = (): ScheduleEvent[] => {
         startTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
         endTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
         color: '#52c41a',
-        category: 'Học tập',
+        category: DEFAULT_CATEGORY,
         priority: 'medium',
         createdBy: {
           _id: 'mock-admin-id-123',

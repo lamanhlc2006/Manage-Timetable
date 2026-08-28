@@ -13,7 +13,10 @@ import { UserManagement } from './pages/UserManagement';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
 import { CommonLayout } from './components/CommonLayout';
+const SharedCalendarView = React.lazy(() => import('./pages/SharedCalendarView'));
+const GroupManagement = React.lazy(() => import('./pages/GroupManagement'));
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Route wrapper to guard pages requiring authentication
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -76,6 +79,13 @@ const AppContent: React.FC = () => {
           {/* Public Authentication Route */}
           <Route path="/login" element={<Login />} />
 
+          {/* Public Shared Calendar Route */}
+          <Route path="/shared/:token" element={
+            <React.Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Đang tải...</div>}>
+              <SharedCalendarView />
+            </React.Suspense>
+          } />
+
           {/* Protected Dashboard Routes nested under CommonLayout */}
           <Route
             path="/"
@@ -90,6 +100,7 @@ const AppContent: React.FC = () => {
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
             <Route path="create-schedule" element={<CreateSchedule />} />
+            <Route path="groups" element={<React.Suspense fallback={<div>Đang tải...</div>}><GroupManagement /></React.Suspense>} />
             <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
           </Route>
 
@@ -103,9 +114,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 
